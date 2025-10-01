@@ -77,7 +77,7 @@ public sealed class XBaseParameterCollection : DbParameterCollection
   {
     for (int i = 0; i < _parameters.Count; i++)
     {
-      if (string.Equals(_parameters[i].ParameterName, parameterName, System.StringComparison.Ordinal))
+      if (string.Equals(_parameters[i].ParameterName, parameterName, StringComparison.Ordinal))
       {
         return i;
       }
