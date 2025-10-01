@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
+using XBase.Core.Table;
 
 namespace XBase.Core.Tests;
 
@@ -22,7 +23,12 @@ internal static class DbfFixtureLibrary
         LastUpdated: new DateOnly(2024, 3, 15),
         Base64Payload:
           "A3wDDwwAAABhABkAAAAAAAAAAAAAAAAAAAAAAAADAABJRAAAAAAAAAAAAE4AAAAABAAAAAAAAAAAAAAAAAAAAE5B" +
-          "TUUAAAAAAAAAQwAAAAAUAAIAAAAAAAAAAAAAAAAADQ=="),
+          "TUUAAAAAAAAAQwAAAAAUAAIAAAAAAAAAAAAAAAAADQ==",
+        ExpectedFields:
+          [
+            new DbfFieldSchema("ID", 'N', 4, 0, false),
+            new DbfFieldSchema("NAME", 'C', 20, 0, true)
+          ]),
       new DbfFixtureDescriptor(
         "dBASE_IV_Memo",
         "dBASE_IV_Memo.dbf",
@@ -35,7 +41,12 @@ internal static class DbfFixtureLibrary
         LastUpdated: new DateOnly(2023, 7, 5),
         Base64Payload:
           "g3sHBQMAAABhABEAAAAAAAAAAAAAAAAAAAAAAABXAABET0NJRAAAAAAAAE4AAAAABgAAAAAAAAAAAAAAAAAAAE5P" +
-          "VEUAAAAAAAAATQAAAAAKAAAAAAAAAAAAAAAAAAAADQ=="),
+          "VEUAAAAAAAAATQAAAAAKAAAAAAAAAAAAAAAAAAAADQ==",
+        ExpectedFields:
+          [
+            new DbfFieldSchema("DOCID", 'N', 6, 0, false),
+            new DbfFieldSchema("NOTE", 'M', 10, 0, false)
+          ]),
       new DbfFixtureDescriptor(
         "FoxPro_26",
         "FoxPro_26.dbf",
@@ -48,7 +59,13 @@ internal static class DbfFixtureLibrary
         LastUpdated: new DateOnly(2022, 11, 30),
         Base64Payload:
           "MHoLHgcAAACBABYAAAAAAAAAAAAAAAAAAAAAAADJAABDT0RFAAAAAAAAAEMAAAAADAAAAAAAAAAAAAAAAAAAAEFD" +
-          "VElWRQAAAAAATAAAAAABAAAAAAAAAAAAAAAAAAAAQU1PVU5UAAAAAABOAAAAAAgCAAAAAAAAAAAAAAAAAAAN"),
+          "VElWRQAAAAAATAAAAAABAAAAAAAAAAAAAAAAAAAAQU1PVU5UAAAAAABOAAAAAAgCAAAAAAAAAAAAAAAAAAAN",
+        ExpectedFields:
+          [
+            new DbfFieldSchema("CODE", 'C', 12, 0, false),
+            new DbfFieldSchema("ACTIVE", 'L', 1, 0, false),
+            new DbfFieldSchema("AMOUNT", 'N', 8, 2, false)
+          ]),
       new DbfFixtureDescriptor(
         "dBASE_III_CP852",
         "dBASE_III_CP852.dbf",
@@ -60,7 +77,11 @@ internal static class DbfFixtureLibrary
         FieldCount: 1,
         LastUpdated: new DateOnly(2024, 4, 1),
         Base64Payload:
-          "A3wEAQAAAABBAAsAAAAAAAAAAAAAAAAAAAAAAABkAACsoXNsbwAAAAAAAEMAAAAACgACAAAAAAAAAAAAAAAAAA0=")
+          "A3wEAQAAAABBAAsAAAAAAAAAAAAAAAAAAAAAAABkAACsoXNsbwAAAAAAAEMAAAAACgACAAAAAAAAAAAAAAAAAA0=",
+        ExpectedFields:
+          [
+            new DbfFieldSchema("Číslo", 'C', 10, 0, true)
+          ])
     ];
 
   public static IEnumerable<DbfFixtureDescriptor> All => Fixtures;
@@ -77,18 +98,61 @@ internal static class DbfFixtureLibrary
   }
 }
 
-public sealed record DbfFixtureDescriptor(
-  string Name,
-  string FileName,
-  byte Version,
-  byte LanguageDriverId,
-  ushort HeaderLength,
-  ushort RecordLength,
-  uint RecordCount,
-  int FieldCount,
-  DateOnly LastUpdated,
-  string Base64Payload)
+public sealed record DbfFixtureDescriptor
 {
+  public DbfFixtureDescriptor(
+    string Name,
+    string FileName,
+    byte Version,
+    byte LanguageDriverId,
+    ushort HeaderLength,
+    ushort RecordLength,
+    uint RecordCount,
+    int FieldCount,
+    DateOnly LastUpdated,
+    string Base64Payload,
+    ImmutableArray<DbfFieldSchema> ExpectedFields)
+  {
+    this.Name = Name;
+    this.FileName = FileName;
+    this.Version = Version;
+    this.LanguageDriverId = LanguageDriverId;
+    this.HeaderLength = HeaderLength;
+    this.RecordLength = RecordLength;
+    this.RecordCount = RecordCount;
+    this.FieldCount = FieldCount;
+    this.LastUpdated = LastUpdated;
+    this.Base64Payload = Base64Payload;
+    this.ExpectedFields = ExpectedFields.IsDefault ? ImmutableArray<DbfFieldSchema>.Empty : ExpectedFields;
+
+    if (this.ExpectedFields.Length != this.FieldCount)
+    {
+      throw new ArgumentException($"Expected field count {this.FieldCount} does not match fixture metadata ({this.ExpectedFields.Length}).", nameof(ExpectedFields));
+    }
+  }
+
+  public string Name { get; }
+
+  public string FileName { get; }
+
+  public byte Version { get; }
+
+  public byte LanguageDriverId { get; }
+
+  public ushort HeaderLength { get; }
+
+  public ushort RecordLength { get; }
+
+  public uint RecordCount { get; }
+
+  public int FieldCount { get; }
+
+  public DateOnly LastUpdated { get; }
+
+  public string Base64Payload { get; }
+
+  public ImmutableArray<DbfFieldSchema> ExpectedFields { get; }
+
   public string EnsureMaterialized()
   {
     string directory = FixturePaths.Root;

@@ -34,6 +34,10 @@ public sealed class DbfTableLoaderTests
     Assert.Equal(fixture.RecordCount, descriptor.RecordCount);
     Assert.Equal(fixture.LastUpdated, descriptor.LastUpdated);
     Assert.Equal(fixture.FieldCount, descriptor.Fields.Count);
+
+    var expectedSchemas = fixture.ExpectedFields;
+    DbfFieldAssertions.SequenceEqual(expectedSchemas, descriptor.FieldSchemas);
+    DbfFieldAssertions.SequenceEqual(expectedSchemas, descriptor.Fields);
   }
 
   [Fact]
