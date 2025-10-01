@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using XBase.Data.Providers;
+using XBase.EFCore.Internal;
 
 namespace XBase.EFCore.Extensions;
 
@@ -24,15 +27,14 @@ public sealed class XBaseOptionsExtension : IDbContextOptionsExtension
 
   public void ApplyServices(IServiceCollection services)
   {
-    services.AddScoped<XBaseConnection>(_ =>
+    services.AddEntityFrameworkXBase();
+    services.TryAddScoped<IRelationalConnection>(provider =>
     {
-      var connection = new XBaseConnection();
-      if (!string.IsNullOrEmpty(ConnectionString))
-      {
-        connection.ConnectionString = ConnectionString;
-      }
-
-      return connection;
+      var options = provider.GetRequiredService<IDbContextOptions>();
+      var extension = options.FindExtension<XBaseOptionsExtension>();
+      var dependencies = provider.GetRequiredService<RelationalConnectionDependencies>();
+      XBaseConnection? connection = provider.GetService<XBaseConnection>();
+      return new XBaseRelationalConnection(dependencies, connection, extension?.ConnectionString);
     });
   }
 
@@ -50,13 +52,13 @@ public sealed class XBaseOptionsExtension : IDbContextOptionsExtension
       _extension = extension;
     }
 
-    public override bool IsDatabaseProvider => false;
+    public override bool IsDatabaseProvider => true;
 
     public override string LogFragment => "using XBase ";
 
     public override int GetServiceProviderHashCode()
     {
-      return _extension.ConnectionString?.GetHashCode() ?? 0;
+      return _extension.ConnectionString?.GetHashCode(StringComparison.Ordinal) ?? 0;
     }
 
     public override bool ShouldUseSameServiceProvider(DbContextOptionsExtensionInfo other)
