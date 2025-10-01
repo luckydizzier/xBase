@@ -2,6 +2,7 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Data.Common;
+using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,6 +11,7 @@ using XBase.Core.Cursors;
 using XBase.Core.Table;
 using XBase.Data.Providers;
 using XBase.Core.Transactions;
+using XBase.TestSupport;
 
 namespace XBase.Data.Tests;
 
@@ -99,6 +101,82 @@ public sealed class XBaseCommandTests
     Assert.Equal(2, reader.GetInt32(0));
     Assert.Equal("Bob", reader.GetString(1));
     Assert.False(reader.Read());
+  }
+
+  [Fact]
+  public void ExecuteReader_WithPhysicalTable_ReadsActiveRows()
+  {
+    string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+    try
+    {
+      DbfTestBuilder.CreateTable(
+        root,
+        "Customers",
+        (false, "A001"),
+        (true, "B002"),
+        (false, "C003"));
+
+      using var connection = new XBaseConnection();
+      connection.ConnectionString = $"xbase://path={root}";
+      connection.Open();
+
+      using DbCommand command = connection.CreateCommand();
+      command.CommandText = "SELECT CODE FROM Customers";
+
+      using DbDataReader reader = command.ExecuteReader();
+      List<string> codes = new();
+      while (reader.Read())
+      {
+        codes.Add(reader.GetString(0));
+      }
+
+      Assert.Equal(new[] { "A001", "C003" }, codes);
+    }
+    finally
+    {
+      if (Directory.Exists(root))
+      {
+        Directory.Delete(root, recursive: true);
+      }
+    }
+  }
+
+  [Fact]
+  public void ExecuteReader_WithDeletedVisibility_ShowIncludesDeleted()
+  {
+    string root = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+    try
+    {
+      DbfTestBuilder.CreateTable(
+        root,
+        "Customers",
+        (false, "A001"),
+        (true, "B002"),
+        (false, "C003"));
+
+      using var connection = new XBaseConnection();
+      connection.ConnectionString = $"xbase://path={root};deleted=show";
+      connection.Open();
+
+      using DbCommand command = connection.CreateCommand();
+      command.CommandText = "SELECT CODE FROM Customers";
+
+      using DbDataReader reader = command.ExecuteReader();
+      List<string> codes = new();
+      while (reader.Read())
+      {
+        codes.Add(reader.GetString(0));
+      }
+
+      Assert.Equal(new[] { "A001", "B002", "C003" }, codes);
+    }
+    finally
+    {
+      if (Directory.Exists(root))
+      {
+        Directory.Delete(root, recursive: true);
+      }
+    }
   }
 
   private sealed class RecordingSchemaMutator : ISchemaMutator

@@ -22,7 +22,7 @@
 - [x] Introduce lock coordination (file + optional record locks) and acceptance tests simulating concurrent access.
 - [x] Implement deferred index maintenance hooks to enable safe reindex/pack flows.
 
-## M5 – Provider Integrations ⏳
+## M5 – Provider Integrations ✅
 - [x] Complete ADO.NET command execution pipeline (parser, plan builder, `XBaseDataReader`) returning real records.
 - [x] Implement EF Core provider services (type mappings, query translation, change tracking) backed by integration tests.
 - [x] Deliver connection string/journaling options surface plus configuration docs.

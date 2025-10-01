@@ -25,6 +25,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\XBase.Data\XBase.Data.csproj" />
     <ProjectReference Include="..\..\src\XBase.Core\XBase.Core.csproj" />
+    <Compile Include="..\TestSupport\DbfTestBuilder.cs" Link="DbfTestBuilder.cs" />
   </ItemGroup>
 
 </Project>
