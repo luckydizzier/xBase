@@ -85,6 +85,8 @@ File System & OS (memory-mapped I/O, file locks)
 
 ### 4.1 DBF
 - Header parsing: version, date, header size, record size, field descriptors, LDID.
+- `DbfTableLoader` surfaces parsed metadata as `DbfTableDescriptor` (implementing `ITableDescriptor`) for reuse across Core/Data tools.
+- `TableCatalog` discovers `.dbf` files in a directory, hydrates memo/index sidecars, and feeds higher-level providers.
 - Record access: fixed-offset views; deleted flag; optional null bitmap (later variants); RECNO = 1-based index.
 - Type mapping: `C/N/F/D/L/M` → .NET types (`string/decimal/double/DateOnly/bool/Stream or string` for memo).
 
