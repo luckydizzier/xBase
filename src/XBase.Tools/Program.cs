@@ -4,15 +4,17 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using XBase.Core.Table;
 
-var commands = new Dictionary<string, Func<Task<int>>>(StringComparer.OrdinalIgnoreCase)
+var commands = new Dictionary<string, Func<Queue<string>, Task<int>>>(StringComparer.OrdinalIgnoreCase)
 {
-  ["verify"] = VerifyAsync,
-  ["clean"] = () => RunDotNetAsync("clean", "xBase.sln"),
-  ["restore"] = () => RunDotNetAsync("restore", "xBase.sln"),
-  ["build"] = () => RunDotNetAsync("build", "xBase.sln", "-c", "Release"),
-  ["test"] = () => RunDotNetAsync("test", "xBase.sln", "--configuration", "Release"),
-  ["publish"] = () => RunDotNetAsync("pack", "xBase.sln", "-c", "Release", "-o", "artifacts/packages")
+  ["verify"] = _ => VerifyAsync(),
+  ["clean"] = _ => RunDotNetAsync("clean", "xBase.sln"),
+  ["restore"] = _ => RunDotNetAsync("restore", "xBase.sln"),
+  ["build"] = _ => RunDotNetAsync("build", "xBase.sln", "-c", "Release"),
+  ["test"] = _ => RunDotNetAsync("test", "xBase.sln", "--configuration", "Release"),
+  ["publish"] = _ => RunDotNetAsync("pack", "xBase.sln", "-c", "Release", "-o", "artifacts/packages"),
+  ["dbfinfo"] = DbfInfoAsync
 };
 
 if (args.Length == 0)
@@ -21,17 +23,21 @@ if (args.Length == 0)
   return;
 }
 
-foreach (string argument in args)
+var argumentQueue = new Queue<string>(args);
+
+while (argumentQueue.Count > 0)
 {
-  if (!commands.TryGetValue(argument, out var handler))
+  string command = argumentQueue.Dequeue();
+
+  if (!commands.TryGetValue(command, out var handler))
   {
-    Console.Error.WriteLine($"Unknown command '{argument}'.");
+    Console.Error.WriteLine($"Unknown command '{command}'.");
     PrintUsage();
     Environment.ExitCode = 1;
     return;
   }
 
-  int exitCode = await handler();
+  int exitCode = await handler(argumentQueue);
   if (exitCode != 0)
   {
     Environment.ExitCode = exitCode;
@@ -48,6 +54,7 @@ static void PrintUsage()
   Console.WriteLine("  build    Run 'dotnet build xBase.sln -c Release'.");
   Console.WriteLine("  test     Run 'dotnet test xBase.sln --configuration Release'.");
   Console.WriteLine("  publish  Run 'dotnet pack xBase.sln -c Release -o artifacts/packages'.");
+  Console.WriteLine("  dbfinfo  Display header metadata for a DBF file or directory.");
 }
 
 static Task<int> RunDotNetAsync(string verb, params string[] arguments)
@@ -66,6 +73,71 @@ static Task<int> VerifyAsync()
 
   Console.WriteLine($"Verified solution at '{solutionPath}'.");
   return Task.FromResult(0);
+}
+
+static Task<int> DbfInfoAsync(Queue<string> arguments)
+{
+  if (arguments.Count == 0)
+  {
+    Console.Error.WriteLine("dbfinfo requires a path to a .dbf file or directory.");
+    return Task.FromResult(1);
+  }
+
+  string target = arguments.Dequeue();
+  var loader = new DbfTableLoader();
+
+  if (Directory.Exists(target))
+  {
+    var catalog = new TableCatalog(loader);
+    IReadOnlyList<DbfTableDescriptor> tables = catalog.EnumerateTables(target);
+    var fileLookup = Directory
+      .EnumerateFiles(target, "*.dbf", SearchOption.TopDirectoryOnly)
+      .ToDictionary(path => Path.GetFileNameWithoutExtension(path)!, path => path, StringComparer.OrdinalIgnoreCase);
+
+    foreach (DbfTableDescriptor table in tables)
+    {
+      fileLookup.TryGetValue(table.Name, out string? actualPath);
+      PrintTable(table, actualPath ?? Path.Combine(target, table.Name + ".dbf"));
+    }
+
+    return Task.FromResult(0);
+  }
+
+  if (File.Exists(target))
+  {
+    DbfTableDescriptor table = loader.Load(target);
+    PrintTable(table, target);
+    return Task.FromResult(0);
+  }
+
+  Console.Error.WriteLine($"Path '{target}' was not found.");
+  return Task.FromResult(1);
+}
+
+static void PrintTable(DbfTableDescriptor descriptor, string sourcePath)
+{
+  Console.WriteLine($"{descriptor.Name} ({sourcePath})");
+  Console.WriteLine($"  Version: 0x{descriptor.Version:X2}  Records: {descriptor.RecordCount}  RecordLength: {descriptor.RecordLength}");
+  Console.WriteLine($"  HeaderLength: {descriptor.HeaderLength}  LDID: 0x{descriptor.LanguageDriverId:X2}");
+  if (descriptor.MemoFileName is not null)
+  {
+    Console.WriteLine($"  Memo: {descriptor.MemoFileName}");
+  }
+
+  if (descriptor.Sidecars.IndexFileNames.Count > 0)
+  {
+    Console.WriteLine("  Indexes:");
+    foreach (string indexName in descriptor.Sidecars.IndexFileNames)
+    {
+      Console.WriteLine($"    - {indexName}");
+    }
+  }
+
+  Console.WriteLine("  Fields:");
+  foreach (DbfFieldSchema field in descriptor.FieldSchemas)
+  {
+    Console.WriteLine($"    - {field.Name} ({field.Type}) len={field.Length} dec={field.DecimalCount}");
+  }
 }
 
 static async Task<int> RunProcessAsync(string fileName, string[] arguments)
