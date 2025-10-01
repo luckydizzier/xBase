@@ -17,17 +17,28 @@ public sealed class XBaseConnection : DbConnection
   private readonly ICursorFactory _cursorFactory;
   private readonly IJournal _journal;
   private readonly ISchemaMutator _schemaMutator;
+  private readonly ITableResolver _tableResolver;
 
   public XBaseConnection()
-    : this(new NoOpCursorFactory(), new NoOpJournal(), new NoOpSchemaMutator())
+    : this(new NoOpCursorFactory(), new NoOpJournal(), new NoOpSchemaMutator(), new NoOpTableResolver())
   {
   }
 
   public XBaseConnection(ICursorFactory cursorFactory, IJournal journal, ISchemaMutator schemaMutator)
+    : this(cursorFactory, journal, schemaMutator, new NoOpTableResolver())
   {
-    _cursorFactory = cursorFactory;
-    _journal = journal;
-    _schemaMutator = schemaMutator;
+  }
+
+  public XBaseConnection(
+    ICursorFactory cursorFactory,
+    IJournal journal,
+    ISchemaMutator schemaMutator,
+    ITableResolver tableResolver)
+  {
+    _cursorFactory = cursorFactory ?? throw new ArgumentNullException(nameof(cursorFactory));
+    _journal = journal ?? throw new ArgumentNullException(nameof(journal));
+    _schemaMutator = schemaMutator ?? throw new ArgumentNullException(nameof(schemaMutator));
+    _tableResolver = tableResolver ?? throw new ArgumentNullException(nameof(tableResolver));
   }
 
   [AllowNull]
@@ -93,33 +104,6 @@ public sealed class XBaseConnection : DbConnection
 
   protected override DbCommand CreateDbCommand()
   {
-    return new XBaseCommand(this, _cursorFactory, _schemaMutator);
-  }
-
-  private sealed class NoOpSchemaMutator : ISchemaMutator
-  {
-    public ValueTask<SchemaVersion> ExecuteAsync(
-      SchemaOperation operation,
-      string? author = null,
-      CancellationToken cancellationToken = default)
-    {
-      return ValueTask.FromResult(SchemaVersion.Start);
-    }
-
-    public ValueTask<IReadOnlyList<SchemaLogEntry>> ReadHistoryAsync(
-      string tableName,
-      CancellationToken cancellationToken = default)
-    {
-      IReadOnlyList<SchemaLogEntry> empty = Array.Empty<SchemaLogEntry>();
-      return ValueTask.FromResult(empty);
-    }
-
-    public ValueTask<IReadOnlyList<SchemaBackfillTask>> ReadBackfillQueueAsync(
-      string tableName,
-      CancellationToken cancellationToken = default)
-    {
-      IReadOnlyList<SchemaBackfillTask> empty = Array.Empty<SchemaBackfillTask>();
-      return ValueTask.FromResult(empty);
-    }
+    return new XBaseCommand(this, _cursorFactory, _schemaMutator, _tableResolver);
   }
 }

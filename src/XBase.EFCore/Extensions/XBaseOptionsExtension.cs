@@ -4,6 +4,9 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using XBase.Abstractions;
+using XBase.Core.Cursors;
+using XBase.Core.Transactions;
 using XBase.Data.Providers;
 using XBase.EFCore.Internal;
 
@@ -34,7 +37,18 @@ public sealed class XBaseOptionsExtension : IDbContextOptionsExtension
       var extension = options.FindExtension<XBaseOptionsExtension>();
       var dependencies = provider.GetRequiredService<RelationalConnectionDependencies>();
       XBaseConnection? connection = provider.GetService<XBaseConnection>();
-      return new XBaseRelationalConnection(dependencies, connection, extension?.ConnectionString);
+      var cursorFactory = provider.GetRequiredService<ICursorFactory>();
+      var journal = provider.GetRequiredService<IJournal>();
+      var schemaMutator = provider.GetRequiredService<ISchemaMutator>();
+      var tableResolver = provider.GetRequiredService<ITableResolver>();
+      return new XBaseRelationalConnection(
+        dependencies,
+        connection,
+        extension?.ConnectionString,
+        cursorFactory,
+        journal,
+        schemaMutator,
+        tableResolver);
     });
   }
 
