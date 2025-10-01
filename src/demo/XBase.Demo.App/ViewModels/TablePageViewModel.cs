@@ -6,7 +6,7 @@ using XBase.Demo.Domain.Catalog;
 namespace XBase.Demo.App.ViewModels;
 
 /// <summary>
-/// Represents the placeholder table page information shown in the browser.
+/// Represents the active table page surfaced in the browser preview.
 /// </summary>
 public sealed class TablePageViewModel : ReactiveObject
 {
