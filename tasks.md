@@ -16,7 +16,7 @@
 - [x] Surface DDL verbs through the ADO.NET provider (command parser, execution pipeline, metadata exposure).
 - [x] Ship CLI `xbase ddl apply/checkpoint/pack` commands with validation, dry-run, and integration tests.
 
-## M4 – Journaling & Transactions ⏳
+## M4 – Journaling & Transactions ✅
 - [x] Ensured `XBaseConnection` starts the journal for synchronous and asynchronous transactions with test coverage.
 - [x] Design and implement the WAL journal format covering FR-WT-1 – FR-WT-4 requirements with crash-recovery tests.
 - [x] Introduce lock coordination (file + optional record locks) and acceptance tests simulating concurrent access.

@@ -34,7 +34,8 @@
 - **M2**: ✅ completed.
 - **M3**: ✅ completed (Online DDL/IPOD + provider enablement).
 - **M4–M5**: ✅ completed.
-- **M6**: ✅ completed.
+
+- **M6**: ✅ completed (GA readiness sign-off).
 
 ---
 
