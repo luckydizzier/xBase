@@ -27,9 +27,15 @@ public sealed class DbfTableLoader
       throw new FileNotFoundException("DBF file was not found.", filePath);
     }
 
-    using FileStream stream = new(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-    string tableName = Path.GetFileNameWithoutExtension(filePath) ?? Path.GetFileName(filePath);
-    string? directory = Path.GetDirectoryName(filePath);
+    string normalizedPath = Path.GetFullPath(filePath);
+
+    using FileStream stream = new(normalizedPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+    string tableName = Path.GetFileNameWithoutExtension(normalizedPath) ?? Path.GetFileName(normalizedPath);
+    string? directory = Path.GetDirectoryName(normalizedPath);
+    if (string.IsNullOrEmpty(directory))
+    {
+      directory = Directory.GetCurrentDirectory();
+    }
     return LoadDbf(stream, tableName, directory);
   }
 

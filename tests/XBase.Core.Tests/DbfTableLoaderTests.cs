@@ -71,6 +71,47 @@ public sealed class DbfTableLoaderTests
   }
 
   [Fact]
+  public void Load_WithRelativePath_DetectsSidecars()
+  {
+    DbfFixtureDescriptor fixture = DbfFixtureLibrary.Get("dBASE_IV_Memo");
+    using var workspace = new TemporaryWorkspace();
+    string tablePath = fixture.CopyTo(workspace.DirectoryPath);
+    string tableName = Path.GetFileNameWithoutExtension(tablePath)!;
+
+    string memoPath = Path.Combine(workspace.DirectoryPath, tableName + ".dbt");
+    File.WriteAllBytes(memoPath, Array.Empty<byte>());
+
+    string ntxPath = Path.Combine(workspace.DirectoryPath, tableName + ".ntx");
+    File.WriteAllBytes(ntxPath, Array.Empty<byte>());
+
+    string mdxPath = Path.Combine(workspace.DirectoryPath, tableName + ".mdx");
+    File.WriteAllBytes(mdxPath, Array.Empty<byte>());
+
+    var loader = new DbfTableLoader();
+
+    string originalDirectory = Directory.GetCurrentDirectory();
+    try
+    {
+      Directory.SetCurrentDirectory(workspace.DirectoryPath);
+      string relativePath = Path.GetFileName(tablePath)!;
+
+      DbfTableDescriptor descriptor = loader.LoadDbf(relativePath);
+
+      Assert.Equal(Path.GetFileName(memoPath), descriptor.MemoFileName);
+      Assert.Contains(Path.GetFileName(ntxPath), descriptor.Sidecars.IndexFileNames);
+      Assert.Contains(Path.GetFileName(mdxPath), descriptor.Sidecars.IndexFileNames);
+
+      IReadOnlyList<IIndexDescriptor> indexes = descriptor.Indexes;
+      Assert.Equal(2, indexes.Count);
+      Assert.All(indexes, index => Assert.Equal(tableName, index.Name));
+    }
+    finally
+    {
+      Directory.SetCurrentDirectory(originalDirectory);
+    }
+  }
+
+  [Fact]
   public void Load_FromStream_UsesSidecarContext()
   {
     DbfFixtureDescriptor fixture = DbfFixtureLibrary.Get("FoxPro_26");
