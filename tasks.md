@@ -32,3 +32,4 @@
 - [x] Author remaining documentation set (ROADMAP.md, CODEPAGES.md, INDEXES.md, TRANSACTIONS.md, provider cookbooks).
 - [x] Establish CI pipeline, packaging strategy, and release checklist for Phase A GA.
 - [x] Hardened `dbfconvert` output resolution so directory targets emit `<table>.dbf`, restoring green release tests.
+- [x] Complete release preparation: NuGet packages, CLI binaries, release notes, and checklist validation.

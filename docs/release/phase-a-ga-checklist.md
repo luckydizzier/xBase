@@ -6,21 +6,21 @@
 - [ ] Ensure schema + fixture repositories synchronized and tagged.
 
 ## Build & Validation
-- [ ] `dotnet restore xBase.sln`
-- [ ] `dotnet build xBase.sln -c Release`
-- [ ] `dotnet test xBase.sln -c Release --collect:"XPlat Code Coverage"`
-- [ ] `dotnet format --verify-no-changes`
-- [ ] `dotnet pack xBase.sln -c Release -o artifacts/nuget`
-- [ ] `dotnet tool run xbase -- verify`
+- [x] `dotnet restore xBase.sln`
+- [x] `dotnet build xBase.sln -c Release`
+- [x] `dotnet test xBase.sln -c Release --collect:"XPlat Code Coverage"`
+- [x] `dotnet format --verify-no-changes`
+- [x] `dotnet pack xBase.sln -c Release -o artifacts/nuget`
+- [x] `dotnet tool run xbase -- verify`
 
 ## Packaging & Signing
-- [ ] Inspect generated NuGet packages (`XBase.Core`, `XBase.Data`, `XBase.EFCore`, `XBase.Tools`).
+- [x] Inspect generated NuGet packages (`XBase.Core`, `XBase.Data`, `XBase.EFCore`, `XBase.Tools`).
 - [ ] Sign packages using organization code-signing certificate.
 - [ ] Publish symbols to internal symbol server.
 
 ## Release Artifact Prep
 - [x] Generate release notes highlighting closed issues + breaking changes.
-- [ ] Attach CLI binaries zipped per platform (win-x64, linux-x64, osx-arm64).
+- [x] Attach CLI binaries zipped per platform (win-x64, linux-x64, osx-arm64).
 - [ ] Snapshot benchmark results and include in release attachments.
 
 ## Publication
