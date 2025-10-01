@@ -48,7 +48,19 @@ internal static class DbfFixtureLibrary
         LastUpdated: new DateOnly(2022, 11, 30),
         Base64Payload:
           "MHoLHgcAAACBABYAAAAAAAAAAAAAAAAAAAAAAADJAABDT0RFAAAAAAAAAEMAAAAADAAAAAAAAAAAAAAAAAAAAEFD" +
-          "VElWRQAAAAAATAAAAAABAAAAAAAAAAAAAAAAAAAAQU1PVU5UAAAAAABOAAAAAAgCAAAAAAAAAAAAAAAAAAAN")
+          "VElWRQAAAAAATAAAAAABAAAAAAAAAAAAAAAAAAAAQU1PVU5UAAAAAABOAAAAAAgCAAAAAAAAAAAAAAAAAAAN"),
+      new DbfFixtureDescriptor(
+        "dBASE_III_CP852",
+        "dBASE_III_CP852.dbf",
+        Version: 0x03,
+        LanguageDriverId: 0x64,
+        HeaderLength: 65,
+        RecordLength: 11,
+        RecordCount: 0,
+        FieldCount: 1,
+        LastUpdated: new DateOnly(2024, 4, 1),
+        Base64Payload:
+          "A3wEAQAAAABBAAsAAAAAAAAAAAAAAAAAAAAAAABkAACsoXNsbwAAAAAAAEMAAAAACgACAAAAAAAAAAAAAAAAAA0=")
     ];
 
   public static IEnumerable<DbfFixtureDescriptor> All => Fixtures;

@@ -80,7 +80,8 @@ public sealed class DbfTableLoader
       stream.ReadExactly(headerTail);
     }
 
-    IReadOnlyList<DbfFieldSchema> fields = ParseFieldDescriptors(headerTail);
+    Encoding encoding = DbfEncodingRegistry.Resolve(languageDriverId);
+    IReadOnlyList<DbfFieldSchema> fields = ParseFieldDescriptors(headerTail, encoding);
 
     DbfSidecarManifest sidecars = directoryPath is not null && Directory.Exists(directoryPath)
       ? DetectSidecars(directoryPath, tableName, version)
@@ -98,7 +99,7 @@ public sealed class DbfTableLoader
       sidecars);
   }
 
-  private static IReadOnlyList<DbfFieldSchema> ParseFieldDescriptors(ReadOnlySpan<byte> buffer)
+  private static IReadOnlyList<DbfFieldSchema> ParseFieldDescriptors(ReadOnlySpan<byte> buffer, Encoding encoding)
   {
     List<DbfFieldSchema> fields = new();
     int offset = 0;
@@ -121,16 +122,16 @@ public sealed class DbfTableLoader
         throw new InvalidDataException("Unexpected end of field descriptor array.");
       }
 
-      fields.Add(ReadFieldDescriptor(buffer[offset..(offset + 32)]));
+      fields.Add(ReadFieldDescriptor(buffer[offset..(offset + 32)], encoding));
       offset += 32;
     }
 
     return fields;
   }
 
-  private static DbfFieldSchema ReadFieldDescriptor(ReadOnlySpan<byte> descriptor)
+  private static DbfFieldSchema ReadFieldDescriptor(ReadOnlySpan<byte> descriptor, Encoding encoding)
   {
-    string rawName = Encoding.ASCII.GetString(descriptor[..11]);
+    string rawName = encoding.GetString(descriptor[..11]);
     string name = rawName.TrimEnd('\0', ' ');
     char type = (char)descriptor[11];
     byte length = descriptor[16];
