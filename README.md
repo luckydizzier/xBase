@@ -35,3 +35,4 @@ Individual steps can be executed with the corresponding command (e.g., `verify`,
 
 - [requirements.md](requirements.md)
 - [architecture.md](architecture.md)
+- [docs/configuration.md](docs/configuration.md)

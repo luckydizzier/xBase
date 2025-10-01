@@ -65,7 +65,7 @@ public sealed class UseXBaseTests
     ServiceProvider provider = services.BuildServiceProvider();
 
     var optionsBuilder = new DbContextOptionsBuilder<SampleContext>();
-    optionsBuilder.UseXBase("Data Source=memory");
+    optionsBuilder.UseXBase("xbase://path=memory");
     optionsBuilder.UseInternalServiceProvider(provider);
 
     using var context = new SampleContext(optionsBuilder.Options);

@@ -57,6 +57,21 @@ public sealed class XBaseConnectionTests
     Assert.Equal(1, journal.RollbackCallCount);
   }
 
+  [Fact]
+  public void ConnectionString_ParseOptions()
+  {
+    using var connection = new XBaseConnection();
+
+    connection.ConnectionString = "xbase://path=/data/db;readonly=true;journal=off;locking=record;deleted=show";
+
+    Assert.Equal("xbase://path=/data/db;readonly=true;journal=off;locking=record;deleted=show", connection.ConnectionString);
+    Assert.Equal("/data/db", connection.Options.RootPath);
+    Assert.True(connection.Options.IsReadOnly);
+    Assert.Equal(LockingMode.Record, connection.Options.LockingMode);
+    Assert.Equal(DeletedRecordVisibility.Show, connection.Options.DeletedRecordVisibility);
+    Assert.Equal(XBaseJournalMode.Disabled, connection.Options.Journal.Mode);
+  }
+
   private sealed class FakeJournal : IJournal
   {
     public int BeginCallCount { get; private set; }

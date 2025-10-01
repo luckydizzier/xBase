@@ -25,7 +25,7 @@
 ## M5 – Provider Integrations ⏳
 - [x] Complete ADO.NET command execution pipeline (parser, plan builder, `XBaseDataReader`) returning real records.
 - [x] Implement EF Core provider services (type mappings, query translation, change tracking) backed by integration tests.
-- [ ] Deliver connection string/journaling options surface plus configuration docs.
+- [x] Deliver connection string/journaling options surface plus configuration docs.
 
 ## M6 – Tooling, Docs & Release ⏳
 - [ ] Expand CLI with `dbfdump`, `dbfpack`, `dbfreindex`, `dbfconvert`, including smoke tests.
