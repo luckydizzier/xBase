@@ -14,7 +14,8 @@
 | **M3 – Online DDL + ADO.NET** | In-Place Online DDL/IPOD plus provider surfacing | Schema-delta `.ddl` log, lazy backfill orchestration, provider DDL verbs, CLI `ddl apply/checkpoint/pack`, retained ADO.NET SELECT subset/parameters/transactions | Schema log replay tested, providers execute DDL end-to-end, tooling passes validation/dry-run scenarios |
 | **M4 – EF Core Read/Write** | LINQ translation and change tracking | EF Core provider, concurrency tokens, CRUD flows | CRUD round-trips with optimistic concurrency tests |
 | **M5 – Indexing & Tooling Enhancements** | Performance tuning and maintenance tooling | Predicate/order pushdown metrics, reindex/pack automation | Diagnostics show >70% index utilization, tooling scenarios green |
-| **M6 – Phase B Read** | FoxPro 2.x ingestion | DBF/FPT/CDX parsing, compatibility validation | FoxPro fixtures load with correct tag enumeration |
+| **M6 – Tooling, Docs & Release Readiness** | Finalize documentation, tooling polish, Phase A GA pipeline | Docs set (CODEPAGES/INDEXES/TRANSACTIONS/cookbooks), CI + packaging, release checklist rehearsed | CI runs green, `dotnet pack` artifacts validated, GA checklist signed |
+| **Phase B Kickoff** | FoxPro 2.x ingestion | DBF/FPT/CDX parsing, compatibility validation | FoxPro fixtures load with correct tag enumeration |
 
 ---
 
@@ -32,7 +33,8 @@
 - **M1**: ✅ completed.
 - **M2**: ✅ completed.
 - **M3**: ✅ completed (Online DDL/IPOD + provider enablement).
-- **M4–M6**: ⏳ pending.
+- **M4–M5**: ✅ completed.
+- **M6**: ⏳ in progress (GA readiness).
 
 ---
 
