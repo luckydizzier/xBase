@@ -88,6 +88,20 @@
 - **FR‑TL‑4**: `dbfreindex` – rebuild NTX/MDX (CDX in Phase B).
 - **FR‑TL‑5**: `dbfconvert` – transcode codepage → UTF‑8, or copy to new schema.
 
+### 4.8 Online DDL (M3)
+- **FR‑OD‑1**: Deliver **In-Place Online DDL (IPOD)** with schema-delta `.ddl` log, versioned projections, lazy backfill,
+  atomic checkpoints, and short exclusive DDL locks.
+- **FR‑OD‑2**: Support `CREATE TABLE`, `ALTER TABLE ADD/DROP/RENAME/MODIFY COLUMN`, `DROP TABLE`, `CREATE INDEX`, `DROP INDEX`
+  with transactional guarantees and side-by-side index swaps.
+- **FR‑OD‑3**: Maintain replayable `.ddl` log entries with checksums, monotonic schema version numbers, and bounded retention.
+- **FR‑OD‑4**: Integrate schema replay with journal recovery: apply data log first, `.ddl` log second; resume incomplete backfill
+  work queues.
+- **FR‑OD‑5**: Extend ADO.NET/EF Core providers to parse/emit DDL statements and surface schema version metadata to callers.
+- **FR‑OD‑6**: Tooling must provide `xbase ddl apply`, `xbase ddl checkpoint`, and `xbase ddl pack` with validation/dry-run
+  switches.
+- **FR‑OD‑7**: Acceptance coverage: concurrent reader safety, writer throttling under backfill, recovery from mid-DDL crash, and
+  index swap correctness.
+
 ## 5. Non‑Functional Requirements (NFR)
 ### 5.1 Performance & Scalability
 - **NFR‑P‑1**: Efficient **read path** using memory‑mapped I/O where safe (platform fallback to buffered).  
