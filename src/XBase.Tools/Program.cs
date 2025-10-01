@@ -106,7 +106,7 @@ static Task<int> DbfInfoAsync(Queue<string> arguments)
 
   if (File.Exists(target))
   {
-    DbfTableDescriptor table = loader.Load(target);
+    DbfTableDescriptor table = loader.LoadDbf(target);
     PrintTable(table, target);
     return Task.FromResult(0);
   }
