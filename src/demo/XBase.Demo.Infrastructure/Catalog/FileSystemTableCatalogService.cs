@@ -33,7 +33,12 @@ public sealed class FileSystemTableCatalogService : ITableCatalogService
     var absoluteRoot = Path.GetFullPath(rootPath);
     var tables = new List<TableModel>();
 
-    foreach (var tableFile in Directory.EnumerateFiles(absoluteRoot, "*.dbf", SearchOption.TopDirectoryOnly))
+    var tableFiles = Directory
+      .EnumerateFiles(absoluteRoot, "*", SearchOption.TopDirectoryOnly)
+      .Where(file => string.Equals(Path.GetExtension(file), ".dbf", StringComparison.OrdinalIgnoreCase))
+      .Distinct(StringComparer.OrdinalIgnoreCase);
+
+    foreach (var tableFile in tableFiles)
     {
       cancellationToken.ThrowIfCancellationRequested();
 
