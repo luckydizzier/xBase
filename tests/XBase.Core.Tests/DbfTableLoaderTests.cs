@@ -104,4 +104,17 @@ public sealed class DbfTableLoaderTests
     Assert.Equal("Číslo", descriptor.FieldSchemas.Single().Name);
     Assert.Equal("Číslo", descriptor.Fields.Single().Name);
   }
+
+  [Fact]
+  public void Load_WithDefaultLanguageDriverId_FallsBackToCodePage437()
+  {
+    DbfFixtureDescriptor fixture = DbfFixtureLibrary.Get("dBASE_III_DefaultLdid");
+    string path = fixture.EnsureMaterialized();
+    var loader = new DbfTableLoader();
+
+    DbfTableDescriptor descriptor = loader.LoadDbf(path);
+
+    Assert.Equal("ÄPFEL", descriptor.FieldSchemas.Single().Name);
+    Assert.Equal("ÄPFEL", descriptor.Fields.Single().Name);
+  }
 }

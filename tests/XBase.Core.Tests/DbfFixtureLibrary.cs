@@ -81,6 +81,21 @@ internal static class DbfFixtureLibrary
         ExpectedFields:
           [
             new DbfFieldSchema("Číslo", 'C', 10, 0, true)
+          ]),
+      new DbfFixtureDescriptor(
+        "dBASE_III_DefaultLdid",
+        "dBASE_III_DefaultLdid.dbf",
+        Version: 0x03,
+        LanguageDriverId: 0x00,
+        HeaderLength: 65,
+        RecordLength: 11,
+        RecordCount: 0,
+        FieldCount: 1,
+        LastUpdated: new DateOnly(2024, 5, 1),
+        Base64Payload: "A3wFAQAAAABBAAsAAAAAAAAAAAAAAAAAAAAAAAAAAACOUEZFTAAAAAAAAEMAAAAACgAAAAAAAAAAAAAAAAAAAA0=",
+        ExpectedFields:
+          [
+            new DbfFieldSchema("ÄPFEL", 'C', 10, 0, false)
           ])
     ];
 
