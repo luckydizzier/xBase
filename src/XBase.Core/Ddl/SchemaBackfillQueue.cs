@@ -58,6 +58,28 @@ public sealed class SchemaBackfillQueue
     return ValueTask.CompletedTask;
   }
 
+  public ValueTask RemoveAsync(Func<SchemaBackfillTask, bool> predicate, CancellationToken cancellationToken = default)
+  {
+    if (predicate is null)
+    {
+      throw new ArgumentNullException(nameof(predicate));
+    }
+
+    List<SchemaBackfillTask> buffer = new(ReadInternal());
+    if (buffer.Count == 0)
+    {
+      return ValueTask.CompletedTask;
+    }
+
+    int removed = buffer.RemoveAll(task => predicate(task));
+    if (removed > 0)
+    {
+      WriteInternal(buffer);
+    }
+
+    return ValueTask.CompletedTask;
+  }
+
   private IReadOnlyList<SchemaBackfillTask> ReadInternal()
   {
     if (!File.Exists(_filePath))
