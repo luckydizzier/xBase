@@ -17,4 +17,8 @@ public sealed record DemoTelemetryEvent(string Name, DateTimeOffset Timestamp, I
 public interface IDemoTelemetrySink
 {
   void Publish(DemoTelemetryEvent telemetryEvent);
+
+  IObservable<DemoTelemetryEvent> Events { get; }
+
+  IReadOnlyCollection<DemoTelemetryEvent> GetSnapshot();
 }

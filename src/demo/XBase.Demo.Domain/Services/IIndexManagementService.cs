@@ -13,4 +13,6 @@ public interface IIndexManagementService
   Task<IndexOperationResult> CreateIndexAsync(IndexCreateRequest request, CancellationToken cancellationToken = default);
 
   Task<IndexOperationResult> DropIndexAsync(IndexDropRequest request, CancellationToken cancellationToken = default);
+
+  IObservable<IndexRebuildProgress> RebuildIndex(IndexRebuildRequest request);
 }

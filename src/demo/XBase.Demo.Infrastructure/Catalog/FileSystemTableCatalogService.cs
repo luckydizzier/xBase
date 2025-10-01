@@ -49,7 +49,13 @@ public sealed class FileSystemTableCatalogService : ITableCatalogService
           continue;
         }
 
-        indexes.Add(new IndexModel(Path.GetFileName(indexFile), extension.ToUpperInvariant()));
+        var fileInfo = new FileInfo(indexFile);
+        indexes.Add(new IndexModel(Path.GetFileName(indexFile), extension.ToUpperInvariant())
+        {
+          FullPath = fileInfo.FullName,
+          SizeBytes = fileInfo.Exists ? fileInfo.Length : null,
+          LastModifiedUtc = fileInfo.Exists ? fileInfo.LastWriteTimeUtc : null
+        });
       }
 
       tables.Add(new TableModel(tableName, tableFile, indexes));

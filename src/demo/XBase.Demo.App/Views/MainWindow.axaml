@@ -31,9 +31,25 @@
 
       <Border Grid.Column="1" BorderBrush="#FF4D596A" BorderThickness="1" CornerRadius="6" Padding="6" Margin="0,0,12,0">
         <Grid RowDefinitions="Auto,*">
-          <StackPanel Grid.Row="0" Orientation="Vertical" Spacing="6" Margin="0,0,0,8">
+          <StackPanel Grid.Row="0" Orientation="Vertical" Spacing="8" Margin="0,0,0,8" DataContext="{Binding IndexManager}">
             <TextBlock Text="Indexes" FontWeight="SemiBold" />
-            <ListBox ItemsSource="{Binding SelectedTable.Indexes}" Height="200" />
+            <ListBox ItemsSource="{Binding Indexes}" SelectedItem="{Binding SelectedIndex}" Height="200">
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <StackPanel Spacing="2">
+                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding Expression}" FontSize="12" Foreground="#FF56687A" />
+                    <TextBlock Text="{Binding MetricsSummary}" FontSize="11" Foreground="#FF6C7A89" TextWrapping="Wrap" />
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <TextBlock Text="{Binding SelectionSummary}" TextWrapping="Wrap" />
+            <Button Content="Rebuild Index" Command="{Binding RebuildIndexCommand}" />
+            <ProgressBar Minimum="0" Maximum="1" Value="{Binding RebuildProgress}" Height="10" IsVisible="{Binding IsRebuildInProgress}" />
+            <TextBlock Text="{Binding StatusMessage}" FontWeight="Medium" Foreground="#FF2E4457" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding PerformanceSummary}" Foreground="#FF2E4457" FontStyle="Italic" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding ErrorMessage}" Foreground="#FFB00020" TextWrapping="Wrap" />
           </StackPanel>
           <Grid Grid.Row="1" RowDefinitions="Auto,*">
             <TextBlock Grid.Row="0" Text="Telemetry" FontWeight="SemiBold" />
