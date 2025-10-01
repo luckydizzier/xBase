@@ -91,7 +91,7 @@ catalog, and compacts `.ddl` log up to `CheckpointVersion`.
 - Recovery order: **data journal → schema `.ddl` log → backfill queue resume**.
 - Backfill tasks persisted in journal to avoid replay divergence.
 - Lock escalation: if backfill lags beyond threshold, throttle new writes or request operator checkpoint.
-- Maximum DDL lock hold time target: < 250 ms for ALTER operations; < 2 s for checkpoint (with memo/index fsync).
+- Maximum DDL lock hold time target: < 250 ms for ALTER operations; < 2 s for checkpoint (with memo/index fsync) **(configurable via `--lock-timeout`; increase for large tables or slow storage as needed)**. For large tables or slower storage, consider scaling the timeout proportionally to table size and I/O performance to avoid premature lock timeouts.
 - Detect conflicting DDL by comparing `CurrentVersion` before appending new entry; providers retry with updated metadata.
 
 ---
