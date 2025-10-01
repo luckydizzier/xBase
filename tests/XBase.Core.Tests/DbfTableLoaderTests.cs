@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using XBase.Abstractions;
 using XBase.Core.Table;
 using Xunit;
 
@@ -60,7 +61,24 @@ public sealed class DbfTableLoaderTests
 
     Assert.Equal("Orders.dbt", descriptor.MemoFileName);
     Assert.Contains("Orders.ntx", descriptor.Sidecars.IndexFileNames);
-    Assert.Single(descriptor.Sidecars.IndexFileNames);
+    IndexDescriptor index = Assert.IsType<IndexDescriptor>(Assert.Single(descriptor.Indexes));
+    Assert.Equal("Orders", index.Name);
+    Assert.Equal("Orders.ntx", index.FileName);
+  }
+
+  [Fact]
+  public void Load_FromStream_ReadsMetadata()
+  {
+    using var workspace = new DbfFixtureWorkspace();
+    string path = workspace.CreateTable(CustomersFixture, recordCount: 5);
+    var loader = new DbfTableLoader();
+
+    using FileStream stream = File.OpenRead(path);
+    DbfTableDescriptor descriptor = loader.Load(stream, CustomersFixture.TableName, workspace.DirectoryPath);
+
+    Assert.Equal(CustomersFixture.TableName, descriptor.Name);
+    Assert.Equal(CustomersFixture.ExpectedRecordLength, descriptor.RecordLength);
+    Assert.Equal((uint)5, descriptor.RecordCount);
   }
 
   [Fact]
@@ -71,7 +89,7 @@ public sealed class DbfTableLoaderTests
     workspace.CreateTable(CustomersFixture);
     var catalog = new TableCatalog(new DbfTableLoader());
 
-    IReadOnlyList<DbfTableDescriptor> tables = catalog.EnumerateTables(workspace.DirectoryPath);
+    IReadOnlyList<ITableDescriptor> tables = catalog.EnumerateTables(workspace.DirectoryPath);
 
     Assert.Equal(2, tables.Count);
     Assert.Collection(
@@ -163,29 +181,14 @@ public sealed class DbfFixtureWorkspace : IDisposable
     foreach (DbfFieldDefinition field in definition.Fields)
     {
       descriptor.Clear();
-      byte[] nameBytes = Encoding.ASCII.GetBytes(field.Name);
-      int nameLength = Math.Min(nameBytes.Length, 11);
-      nameBytes.AsSpan(0, nameLength).CopyTo(descriptor);
+      Encoding.ASCII.GetBytes(field.Name, descriptor);
       descriptor[11] = (byte)field.Type;
       descriptor[16] = field.Length;
       descriptor[17] = field.DecimalCount;
-      if (field.IsNullable)
-      {
-        descriptor[18] |= 0x02;
-      }
-
+      descriptor[18] = field.IsNullable ? (byte)0x02 : (byte)0x00;
       stream.Write(descriptor);
     }
 
     stream.WriteByte(0x0D);
-
-    if (recordCount > 0)
-    {
-      int dataLength = recordLength * (int)recordCount;
-      byte[] buffer = new byte[dataLength];
-      stream.Write(buffer);
-    }
-
-    stream.Flush(true);
   }
 }
