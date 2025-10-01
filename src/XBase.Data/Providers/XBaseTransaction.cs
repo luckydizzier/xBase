@@ -12,10 +12,14 @@ public sealed class XBaseTransaction : DbTransaction
   private readonly IJournal _journal;
   private bool _disposed;
 
-  public XBaseTransaction(XBaseConnection connection, IJournal journal)
+  public XBaseTransaction(XBaseConnection connection, IJournal journal, bool journalStarted = false)
   {
     _connection = connection;
     _journal = journal;
+    if (!journalStarted)
+    {
+      _journal.BeginAsync().GetAwaiter().GetResult();
+    }
   }
 
   public override IsolationLevel IsolationLevel => IsolationLevel.ReadCommitted;

@@ -2,6 +2,8 @@ using System;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
+using System.Threading;
+using System.Threading.Tasks;
 using XBase.Abstractions;
 using XBase.Core.Cursors;
 using XBase.Core.Transactions;
@@ -61,7 +63,30 @@ public sealed class XBaseConnection : DbConnection
 
   protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel)
   {
-    return new XBaseTransaction(this, _journal);
+    _journal.BeginAsync().GetAwaiter().GetResult();
+
+    return new XBaseTransaction(this, _journal, journalStarted: true);
+  }
+
+  protected override async ValueTask<DbTransaction> BeginDbTransactionAsync(
+    IsolationLevel isolationLevel,
+    CancellationToken cancellationToken = default)
+  {
+    await _journal.BeginAsync(cancellationToken).ConfigureAwait(false);
+
+    return new XBaseTransaction(this, _journal, journalStarted: true);
+  }
+
+  public new ValueTask<DbTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default)
+  {
+    return BeginTransactionAsync(IsolationLevel.Unspecified, cancellationToken);
+  }
+
+  public new ValueTask<DbTransaction> BeginTransactionAsync(
+    IsolationLevel isolationLevel,
+    CancellationToken cancellationToken = default)
+  {
+    return BeginDbTransactionAsync(isolationLevel, cancellationToken);
   }
 
   protected override DbCommand CreateDbCommand()
