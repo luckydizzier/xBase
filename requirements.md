@@ -199,8 +199,10 @@ README.md
   *Acceptance*: open 20+ fixtures, correct schema and record counts.
 - **M2 (Core Write + Journal)**: I/U/D; journal commit/recover; basic locking.  
   *Acceptance*: crash simulation tests pass; no data loss.
-- **M3 (ADO.NET)**: SELECT subset; parameters; transactions.  
-  *Acceptance*: ADO.NET samples run cross‑platform; perf baselines met.
+- **M3 (Online DDL + ADO.NET)**: Deliver In-Place Online DDL/IPOD (schema-delta log, lazy backfill, DDL lock discipline) while
+  completing the ADO.NET surface (SELECT subset, parameters, transactions) needed to drive tooling and provider scenarios.
+  *Acceptance*: Schema-delta logging captured and replayed in tests; ADO.NET/EF providers issue DDL verbs end-to-end; CLI `ddl
+  apply/checkpoint/pack` commands ship with validation and dry-run coverage.
 - **M4 (EF Core Read/Write)**: LINQ subset; tracking; concurrency tokens.  
   *Acceptance*: CRUD round‑trips; concurrency tests pass.
 - **M5 (Indexes & Tools)**: Reindex/pack tools; predicate/order pushdown measured.  
