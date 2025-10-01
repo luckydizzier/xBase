@@ -748,7 +748,7 @@ static async Task<int> DbfConvertAsync(Queue<string> arguments)
     }
   }
 
-  string defaultOutputName = Path.Combine(root, table + ".utf8.dbf");
+  string defaultOutputName = Path.Combine(root, table + ".dbf");
   string? resolvedOutput = outputCandidate is null
     ? defaultOutputName
     : ResolveOutputPath(outputCandidate, table, "dbf") ?? defaultOutputName;

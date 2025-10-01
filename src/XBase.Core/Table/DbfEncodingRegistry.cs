@@ -73,4 +73,19 @@ public static class DbfEncodingRegistry
 
     return DefaultEncoding;
   }
+
+  public static bool TryGetLanguageDriverId(int codePage, out byte languageDriverId)
+  {
+    foreach (KeyValuePair<byte, int> mapping in CodePageByLanguageDriverId)
+    {
+      if (mapping.Value == codePage)
+      {
+        languageDriverId = mapping.Key;
+        return true;
+      }
+    }
+
+    languageDriverId = default;
+    return false;
+  }
 }

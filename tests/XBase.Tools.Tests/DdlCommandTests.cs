@@ -15,9 +15,8 @@ public sealed class DdlCommandTests
   [Fact]
   public async Task ApplyCommand_WritesSchemaLog()
   {
-    string repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../.."));
-    string buildConfiguration = GetBuildConfiguration();
-    string toolAssembly = Path.Combine(repoRoot, "src", "XBase.Tools", "bin", buildConfiguration, "net8.0", "XBase.Tools.dll");
+    string repoRoot = ToolTestContext.RepoRoot;
+    string toolAssembly = ToolTestContext.GetToolAssemblyPath();
     Assert.True(File.Exists(toolAssembly));
     string workspace = Path.Combine(Path.GetTempPath(), $"xbase-ddl-{Guid.NewGuid():N}");
     Directory.CreateDirectory(workspace);
@@ -75,9 +74,8 @@ public sealed class DdlCommandTests
   [Fact]
   public async Task CheckpointDryRun_PrintsStatus()
   {
-    string repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../.."));
-    string buildConfiguration = GetBuildConfiguration();
-    string toolAssembly = Path.Combine(repoRoot, "src", "XBase.Tools", "bin", buildConfiguration, "net8.0", "XBase.Tools.dll");
+    string repoRoot = ToolTestContext.RepoRoot;
+    string toolAssembly = ToolTestContext.GetToolAssemblyPath();
     Assert.True(File.Exists(toolAssembly));
     string workspace = Path.Combine(Path.GetTempPath(), $"xbase-ddl-{Guid.NewGuid():N}");
     Directory.CreateDirectory(workspace);
@@ -127,9 +125,8 @@ public sealed class DdlCommandTests
   [Fact]
   public async Task PackDryRun_PrintsStatus()
   {
-    string repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../.."));
-    string buildConfiguration = GetBuildConfiguration();
-    string toolAssembly = Path.Combine(repoRoot, "src", "XBase.Tools", "bin", buildConfiguration, "net8.0", "XBase.Tools.dll");
+    string repoRoot = ToolTestContext.RepoRoot;
+    string toolAssembly = ToolTestContext.GetToolAssemblyPath();
     Assert.True(File.Exists(toolAssembly));
     string workspace = Path.Combine(Path.GetTempPath(), $"xbase-ddl-{Guid.NewGuid():N}");
     Directory.CreateDirectory(workspace);
@@ -183,9 +180,8 @@ public sealed class DdlCommandTests
   [Fact]
   public async Task PackCommand_RewritesDbfAndClearsQueue()
   {
-    string repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../.."));
-    string buildConfiguration = GetBuildConfiguration();
-    string toolAssembly = Path.Combine(repoRoot, "src", "XBase.Tools", "bin", buildConfiguration, "net8.0", "XBase.Tools.dll");
+    string repoRoot = ToolTestContext.RepoRoot;
+    string toolAssembly = ToolTestContext.GetToolAssemblyPath();
     Assert.True(File.Exists(toolAssembly));
     string workspacePath = Path.Combine(Path.GetTempPath(), $"xbase-ddl-{Guid.NewGuid():N}");
     Directory.CreateDirectory(workspacePath);
@@ -264,9 +260,8 @@ public sealed class DdlCommandTests
   [Fact]
   public async Task ReindexCommand_RebuildsIndexes()
   {
-    string repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../.."));
-    string buildConfiguration = GetBuildConfiguration();
-    string toolAssembly = Path.Combine(repoRoot, "src", "XBase.Tools", "bin", buildConfiguration, "net8.0", "XBase.Tools.dll");
+    string repoRoot = ToolTestContext.RepoRoot;
+    string toolAssembly = ToolTestContext.GetToolAssemblyPath();
     Assert.True(File.Exists(toolAssembly));
     string workspacePath = Path.Combine(Path.GetTempPath(), $"xbase-ddl-{Guid.NewGuid():N}");
     Directory.CreateDirectory(workspacePath);
@@ -323,16 +318,4 @@ public sealed class DdlCommandTests
     }
   }
 
-  private static string GetBuildConfiguration()
-  {
-    var baseDirectory = new DirectoryInfo(AppContext.BaseDirectory);
-    string? configuration = baseDirectory.Parent?.Name;
-
-    if (string.IsNullOrEmpty(configuration))
-    {
-      throw new InvalidOperationException("Unable to determine build configuration for test execution.");
-    }
-
-    return configuration;
-  }
 }
