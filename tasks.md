@@ -23,8 +23,8 @@
 - [x] Implement deferred index maintenance hooks to enable safe reindex/pack flows.
 
 ## M5 – Provider Integrations ⏳
-- [ ] Complete ADO.NET command execution pipeline (parser, plan builder, `XBaseDataReader`) returning real records.
-- [ ] Implement EF Core provider services (type mappings, query translation, change tracking) backed by integration tests.
+- [x] Complete ADO.NET command execution pipeline (parser, plan builder, `XBaseDataReader`) returning real records.
+- [x] Implement EF Core provider services (type mappings, query translation, change tracking) backed by integration tests.
 - [ ] Deliver connection string/journaling options surface plus configuration docs.
 
 ## M6 – Tooling, Docs & Release ⏳
