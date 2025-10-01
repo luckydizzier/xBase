@@ -72,6 +72,11 @@ public sealed class XBaseConnectionTests
       return ValueTask.CompletedTask;
     }
 
+    public ValueTask AppendAsync(JournalEntry entry, CancellationToken cancellationToken = default)
+    {
+      return ValueTask.CompletedTask;
+    }
+
     public ValueTask CommitAsync(CancellationToken cancellationToken = default)
     {
       return ValueTask.CompletedTask;

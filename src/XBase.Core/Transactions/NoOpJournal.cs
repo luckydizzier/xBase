@@ -12,6 +12,12 @@ public sealed class NoOpJournal : IJournal
     return ValueTask.CompletedTask;
   }
 
+  public ValueTask AppendAsync(JournalEntry entry, CancellationToken cancellationToken = default)
+  {
+    cancellationToken.ThrowIfCancellationRequested();
+    return ValueTask.CompletedTask;
+  }
+
   public ValueTask CommitAsync(CancellationToken cancellationToken = default)
   {
     cancellationToken.ThrowIfCancellationRequested();

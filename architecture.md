@@ -108,14 +108,36 @@ File System & OS (memory-mapped I/O, file locks)
 ## 5. Transactions & Locking
 
 ### 5.1 Journaled Transactions
-- **Append-only journal** entries: `{TxnId, Op(Insert|Update|Delete|IndexOp), Table, RecNo, Before, After, Checksum}`.
-- **Commit protocol**: `fsync(journal)` → apply to data files → `fsync(data)` → write commit marker → truncate/rotate journal.
-- **Atomicity**: rename/swap patterns ensure power-failure safety on POSIX/NTFS.
+- **File envelope**: 16-byte header (`"XBASEJNL"`, version = 1, reserved padding) precedes an append-only stream of entries. `WalJournal` verifies the header on open and refuses new transactions when pending entries exist.
+- **Entry layout**: each record stores `{length:int32, checksum:uint32}` followed by payload:
+
+  ```text
+  byte   entryType (Begin|Mutation|Commit|Rollback)
+  int64  transactionId (monotonic, per process)
+  int64  timestamp (UTC ticks)
+  [mutation payload]
+  ```
+
+  Mutation payload embeds the table name (UTF-8 + length prefix), record number, mutation kind (`Insert|Update|Delete`), and serialized before/after images (length-prefixed byte blobs).
+- **Durability controls**: writes are issued with `FileOptions.WriteThrough` and optional double flush (`FlushAsync` + `Flush(true)`) to satisfy `FR‑WT‑3`. Options allow deferring journal truncation (`AutoResetOnCommit = false`) for diagnostics.
+- **Commit protocol**: `Begin` entry → mutation batch → `Commit` entry (fsync) → core applies DBF/DBT/index updates → data fsync → journal reset (`truncate + header rewrite`). `Rollback` records trigger the same reset semantics after flushing the rollback marker.
+- **Crash recovery**: `WalJournal.RecoverAsync` parses the stream, producing
+  - `CommittedTransactions` (redo set: after images applied in order),
+  - `IncompleteTransactions` (undo set: before images for uncommitted or rollback-tagged txns), and
+  - diagnostic flags for checksum mismatches or truncated tails. Recovery must run before a new transaction begins; `BeginAsync` enforces this by checking for residual entries.
+- **Atomicity**: once data files reconcile the redo/undo plan, the journal is reset, matching the rename/swap guarantees used by DDL flows.
 
 ### 5.2 Concurrency Model
 - Default **single-writer, multi-reader**. Optional record-level locks for long updates.
 - Readers respect file locks; writers acquire exclusive table locks during commit window.
 - EF `SaveChanges` wraps mutations in a transaction; optimistic concurrency via record checksum column.
+- `FileLockManager` coordinates OS locks through `.lck` sidecars adjacent to DBF/DBT files. Shared locks open the sidecar
+  read-only (`FileShare.Read`), allowing multiple readers, while exclusive locks request `FileShare.None` and block until
+  readers drain. Record-level locks (when enabled) reuse the same sidecar with byte-range locking (one byte per record), so
+  writers on different records interleave without contending on the global file mutex.
+- `FileLockManagerOptions` tune retry cadence (`RetryDelay`), acquisition timeout, lock directory overrides, and the span used
+  for record offsets (default `1` byte). `LockingMode` toggles `None | File | Record`, with record mode layering per-record
+  locks on top of the file primitive.
 
 ---
 

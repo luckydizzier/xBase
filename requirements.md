@@ -63,7 +63,11 @@
 - **FR‑WT‑3**: **Commit protocol**: fsync journal → update main files atomically → fsync → truncate/rotate journal.  
 - **FR‑WT‑4**: **Crash recovery**: on open, redo/undo to consistent state.  
 - **FR‑WT‑5**: **Index maintenance**: deferred updates within transaction; `REINDEX` tool.  
-- **FR‑WT‑6**: **Locking**: OS file locks + optional `.lck`; **single‑writer/multi‑reader**; optional record‑level locks.  
+- **FR‑WT‑6**: **Locking**: OS file locks + optional `.lck`; **single‑writer/multi‑reader**; optional record‑level locks.
+  - `FileLockManager` uses `.lck` sidecars to coordinate shared (`FileShare.Read`) and exclusive (`FileShare.None`) table locks
+    with retry/timeout controls.
+  - Record locking (enabled via `LockingMode.Record`) reuses the same sidecar and applies byte-range locks (default one byte per
+    record) so disjoint records can update concurrently.
 - **FR‑WT‑7**: **Pack/Zap**: implement with safety checks and backups.
 
 ### 4.5 ADO.NET Provider

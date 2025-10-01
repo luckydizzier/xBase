@@ -158,11 +158,201 @@ public interface ICursorFactory
   ValueTask<ICursor> CreateIndexedAsync(ITableDescriptor table, IIndexDescriptor index, CursorOptions options, CancellationToken cancellationToken = default);
 }
 
+public enum JournalEntryType
+{
+  Begin = 1,
+  Mutation = 2,
+  Commit = 3,
+  Rollback = 4
+}
+
+public enum JournalMutationKind
+{
+  Insert = 1,
+  Update = 2,
+  Delete = 3
+}
+
+public sealed class JournalMutation
+{
+  private readonly byte[] _beforeImage;
+  private readonly byte[] _afterImage;
+
+  public JournalMutation(
+    string tableName,
+    int recordNumber,
+    JournalMutationKind kind,
+    ReadOnlyMemory<byte> beforeImage,
+    ReadOnlyMemory<byte> afterImage)
+  {
+    if (string.IsNullOrWhiteSpace(tableName))
+    {
+      throw new ArgumentException("Value cannot be null or whitespace.", nameof(tableName));
+    }
+
+    TableName = tableName;
+    RecordNumber = recordNumber;
+    Kind = kind;
+    _beforeImage = beforeImage.ToArray();
+    _afterImage = afterImage.ToArray();
+  }
+
+  public string TableName { get; }
+
+  public int RecordNumber { get; }
+
+  public JournalMutationKind Kind { get; }
+
+  public ReadOnlyMemory<byte> BeforeImage => _beforeImage;
+
+  public ReadOnlyMemory<byte> AfterImage => _afterImage;
+
+  public static JournalMutation Insert(
+    string tableName,
+    int recordNumber,
+    ReadOnlyMemory<byte> record)
+  {
+    return new JournalMutation(tableName, recordNumber, JournalMutationKind.Insert, ReadOnlyMemory<byte>.Empty, record);
+  }
+
+  public static JournalMutation Update(
+    string tableName,
+    int recordNumber,
+    ReadOnlyMemory<byte> beforeImage,
+    ReadOnlyMemory<byte> afterImage)
+  {
+    return new JournalMutation(tableName, recordNumber, JournalMutationKind.Update, beforeImage, afterImage);
+  }
+
+  public static JournalMutation Delete(
+    string tableName,
+    int recordNumber,
+    ReadOnlyMemory<byte> beforeImage)
+  {
+    return new JournalMutation(tableName, recordNumber, JournalMutationKind.Delete, beforeImage, ReadOnlyMemory<byte>.Empty);
+  }
+}
+
+public sealed class JournalEntry
+{
+  private JournalEntry(
+    long transactionId,
+    JournalEntryType entryType,
+    DateTimeOffset timestamp,
+    JournalMutation? mutation)
+  {
+    TransactionId = transactionId;
+    EntryType = entryType;
+    Timestamp = timestamp.ToUniversalTime();
+    Mutation = mutation;
+  }
+
+  public long TransactionId { get; }
+
+  public JournalEntryType EntryType { get; }
+
+  public DateTimeOffset Timestamp { get; }
+
+  public JournalMutation? Mutation { get; }
+
+  public static JournalEntry Begin(long transactionId, DateTimeOffset timestamp)
+  {
+    return new JournalEntry(transactionId, JournalEntryType.Begin, timestamp, mutation: null);
+  }
+
+  public static JournalEntry Commit(long transactionId, DateTimeOffset timestamp)
+  {
+    return new JournalEntry(transactionId, JournalEntryType.Commit, timestamp, mutation: null);
+  }
+
+  public static JournalEntry Rollback(long transactionId, DateTimeOffset timestamp)
+  {
+    return new JournalEntry(transactionId, JournalEntryType.Rollback, timestamp, mutation: null);
+  }
+
+  public static JournalEntry ForMutation(long transactionId, DateTimeOffset timestamp, JournalMutation mutation)
+  {
+    if (mutation is null)
+    {
+      throw new ArgumentNullException(nameof(mutation));
+    }
+
+    return new JournalEntry(transactionId, JournalEntryType.Mutation, timestamp, mutation);
+  }
+}
+
 public interface IJournal
 {
   ValueTask BeginAsync(CancellationToken cancellationToken = default);
+  ValueTask AppendAsync(JournalEntry entry, CancellationToken cancellationToken = default);
   ValueTask CommitAsync(CancellationToken cancellationToken = default);
   ValueTask RollbackAsync(CancellationToken cancellationToken = default);
+}
+
+public enum LockKind
+{
+  File,
+  Record
+}
+
+public enum LockType
+{
+  Shared,
+  Exclusive
+}
+
+public enum LockingMode
+{
+  None,
+  File,
+  Record
+}
+
+public readonly record struct LockKey
+{
+  public LockKey(string resourcePath, LockKind kind, long recordNumber = -1)
+  {
+    if (string.IsNullOrWhiteSpace(resourcePath))
+    {
+      throw new ArgumentException("Resource path must be provided.", nameof(resourcePath));
+    }
+
+    if (kind == LockKind.Record && recordNumber < 0)
+    {
+      throw new ArgumentOutOfRangeException(nameof(recordNumber), "Record number must be non-negative for record locks.");
+    }
+
+    ResourcePath = resourcePath;
+    Kind = kind;
+    RecordNumber = recordNumber;
+  }
+
+  public string ResourcePath { get; }
+
+  public LockKind Kind { get; }
+
+  public long RecordNumber { get; }
+
+  public static LockKey ForFile(string resourcePath)
+  {
+    return new LockKey(resourcePath, LockKind.File);
+  }
+
+  public static LockKey ForRecord(string resourcePath, long recordNumber)
+  {
+    return new LockKey(resourcePath, LockKind.Record, recordNumber);
+  }
+}
+
+public interface ILockHandle : IAsyncDisposable, IDisposable
+{
+  LockKey Key { get; }
+  LockType Type { get; }
+}
+
+public interface ILockManager
+{
+  ValueTask<ILockHandle> AcquireAsync(LockKey key, LockType type, CancellationToken cancellationToken = default);
 }
 
 public interface ITableMutator
