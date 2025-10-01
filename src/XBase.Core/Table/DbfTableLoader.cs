@@ -24,7 +24,34 @@ public sealed class DbfTableLoader
       throw new FileNotFoundException("DBF file was not found.", filePath);
     }
 
-    using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+    using FileStream stream = new(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+    string tableName = Path.GetFileNameWithoutExtension(filePath) ?? Path.GetFileName(filePath);
+    string? directory = Path.GetDirectoryName(filePath);
+    return Load(stream, tableName, directory);
+  }
+
+  public DbfTableDescriptor Load(Stream stream, string tableName, string? directoryPath = null)
+  {
+    if (stream is null)
+    {
+      throw new ArgumentNullException(nameof(stream));
+    }
+
+    if (string.IsNullOrWhiteSpace(tableName))
+    {
+      throw new ArgumentException("Table name must be provided for stream-based loading.", nameof(tableName));
+    }
+
+    if (!stream.CanRead)
+    {
+      throw new ArgumentException("Stream must be readable.", nameof(stream));
+    }
+
+    if (stream.CanSeek)
+    {
+      stream.Seek(0, SeekOrigin.Begin);
+    }
+
     Span<byte> header = stackalloc byte[32];
     stream.ReadExactly(header);
 
@@ -40,33 +67,18 @@ public sealed class DbfTableLoader
       throw new InvalidDataException($"Header length {headerLength} is too small to contain field descriptors.");
     }
 
-    int remainingHeaderLength = headerLength - header.Length;
+    int remainingHeaderLength = Math.Max(0, headerLength - header.Length);
     byte[] headerTail = new byte[remainingHeaderLength];
-    stream.ReadExactly(headerTail);
-
-    List<DbfFieldSchema> fields = new();
-    int offset = 0;
-    while (offset < headerTail.Length)
+    if (remainingHeaderLength > 0)
     {
-      byte marker = headerTail[offset];
-      if (marker == 0x0D)
-      {
-        offset++;
-        break;
-      }
-
-      if (offset + 32 > headerTail.Length)
-      {
-        throw new InvalidDataException("Unexpected end of field descriptor array.");
-      }
-
-      fields.Add(ReadFieldDescriptor(headerTail.AsSpan(offset, 32)));
-      offset += 32;
+      stream.ReadExactly(headerTail);
     }
 
-    string tableName = Path.GetFileNameWithoutExtension(filePath) ?? Path.GetFileName(filePath);
-    string directory = Path.GetDirectoryName(filePath) ?? Environment.CurrentDirectory;
-    var sidecars = DetectSidecars(directory, tableName, version);
+    IReadOnlyList<DbfFieldSchema> fields = ParseFieldDescriptors(headerTail);
+
+    DbfSidecarManifest sidecars = directoryPath is not null && Directory.Exists(directoryPath)
+      ? DetectSidecars(directoryPath, tableName, version)
+      : DbfSidecarManifest.Empty;
 
     return new DbfTableDescriptor(
       tableName,
@@ -78,6 +90,36 @@ public sealed class DbfTableLoader
       languageDriverId,
       fields,
       sidecars);
+  }
+
+  private static IReadOnlyList<DbfFieldSchema> ParseFieldDescriptors(ReadOnlySpan<byte> buffer)
+  {
+    List<DbfFieldSchema> fields = new();
+    int offset = 0;
+    while (offset < buffer.Length)
+    {
+      byte marker = buffer[offset];
+      if (marker == 0x0D)
+      {
+        break;
+      }
+
+      if (marker == 0x00)
+      {
+        offset++;
+        continue;
+      }
+
+      if (offset + 32 > buffer.Length)
+      {
+        throw new InvalidDataException("Unexpected end of field descriptor array.");
+      }
+
+      fields.Add(ReadFieldDescriptor(buffer[offset..(offset + 32)]));
+      offset += 32;
+    }
+
+    return fields;
   }
 
   private static DbfFieldSchema ReadFieldDescriptor(ReadOnlySpan<byte> descriptor)
@@ -100,10 +142,10 @@ public sealed class DbfTableLoader
     return new DateOnly(resolvedYear, resolvedMonth, resolvedDay);
   }
 
-  private static DbfSidecarManifest DetectSidecars(string directory, string tableName, byte version)
+  private static DbfSidecarManifest DetectSidecars(string directoryPath, string tableName, byte version)
   {
     var lookup = Directory
-      .EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly)
+      .EnumerateFiles(directoryPath, "*", SearchOption.TopDirectoryOnly)
       .Select(Path.GetFileName)
       .Where(name => name is not null)
       .ToDictionary(name => name!, StringComparer.OrdinalIgnoreCase);

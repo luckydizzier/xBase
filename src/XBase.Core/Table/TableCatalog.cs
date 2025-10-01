@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using XBase.Abstractions;
 
 namespace XBase.Core.Table;
 
@@ -17,7 +18,7 @@ public sealed class TableCatalog
     this.loader = loader ?? throw new ArgumentNullException(nameof(loader));
   }
 
-  public IReadOnlyList<DbfTableDescriptor> EnumerateTables(string directoryPath)
+  public IReadOnlyList<ITableDescriptor> EnumerateTables(string directoryPath)
   {
     if (directoryPath is null)
     {
@@ -29,7 +30,7 @@ public sealed class TableCatalog
       throw new DirectoryNotFoundException($"Directory '{directoryPath}' was not found.");
     }
 
-    List<DbfTableDescriptor> tables = new();
+    List<ITableDescriptor> tables = new();
     foreach (string dbfPath in Directory.EnumerateFiles(directoryPath, "*.dbf", SearchOption.TopDirectoryOnly))
     {
       tables.Add(loader.Load(dbfPath));

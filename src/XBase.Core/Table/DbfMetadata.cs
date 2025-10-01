@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using XBase.Abstractions;
 
@@ -48,7 +49,10 @@ public sealed class DbfTableDescriptor : ITableDescriptor
     FieldSchemas = fieldSchemas.ToArray();
     Sidecars = sidecars ?? DbfSidecarManifest.Empty;
     Fields = FieldSchemas.Select(schema => schema.ToDescriptor()).ToArray();
-    Indexes = Array.Empty<IIndexDescriptor>();
+    Indexes = Sidecars.IndexFileNames
+      .Select(CreateIndexDescriptor)
+      .Cast<IIndexDescriptor>()
+      .ToArray();
   }
 
   public string Name { get; }
@@ -74,4 +78,10 @@ public sealed class DbfTableDescriptor : ITableDescriptor
   public IReadOnlyList<DbfFieldSchema> FieldSchemas { get; }
 
   public DbfSidecarManifest Sidecars { get; }
+
+  private static IndexDescriptor CreateIndexDescriptor(string fileName)
+  {
+    string name = Path.GetFileNameWithoutExtension(fileName) ?? fileName;
+    return new IndexDescriptor(name, string.Empty, false, fileName);
+  }
 }
