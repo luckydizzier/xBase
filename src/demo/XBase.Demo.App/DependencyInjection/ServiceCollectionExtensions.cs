@@ -18,6 +18,7 @@ public static class ServiceCollectionExtensions
 
     services.AddSingleton<SchemaDesignerViewModel>();
     services.AddSingleton<IndexManagerViewModel>();
+    services.AddSingleton<SeedAndRecoveryViewModel>();
     services.AddSingleton<ShellViewModel>();
     services.AddSingleton<MainWindow>();
 
