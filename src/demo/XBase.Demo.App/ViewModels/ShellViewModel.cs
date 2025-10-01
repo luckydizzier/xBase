@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using ReactiveUI;
+using System.Reactive.Threading.Tasks;
 using XBase.Demo.Domain.Catalog;
 using XBase.Demo.Domain.Diagnostics;
 using XBase.Demo.Domain.Services;
@@ -19,8 +22,9 @@ public class ShellViewModel : ReactiveObject
   private readonly ILogger<ShellViewModel> _logger;
 
   private string? _catalogRoot;
-  private string? _tableSummary;
   private bool _isBusy;
+  private TableListItemViewModel? _selectedTable;
+  private string? _catalogStatus;
 
   public ShellViewModel(
       ITableCatalogService catalogService,
@@ -33,11 +37,49 @@ public class ShellViewModel : ReactiveObject
     _telemetrySink = telemetrySink;
     _logger = logger;
 
-    OpenCatalogCommand = ReactiveCommand.CreateFromTask<string>(ExecuteOpenCatalogAsync);
+    Tables = new ReadOnlyObservableCollection<TableListItemViewModel>(_tables);
+    TelemetryEvents = new ReadOnlyObservableCollection<DemoTelemetryEvent>(_telemetryEvents);
+    TablePage = new TablePageViewModel();
+
+    var isIdle = this.WhenAnyValue(x => x.IsBusy).Select(isBusy => !isBusy);
+
+    OpenCatalogCommand = ReactiveCommand.CreateFromTask<string, CatalogModel>(ExecuteOpenCatalogAsync, isIdle);
+    OpenCatalogCommand.Subscribe(OnCatalogLoaded);
     OpenCatalogCommand.ThrownExceptions.Subscribe(OnOpenCatalogFault);
+
+    BrowseCatalogCommand = ReactiveCommand.CreateFromTask(ExecuteBrowseCatalogAsync, isIdle);
+    BrowseCatalogCommand.ThrownExceptions.Subscribe(ex => _logger.LogError(ex, "Catalog browse failed"));
+
+    var canRefresh = this.WhenAnyValue(x => x.CatalogRoot, x => x.IsBusy, (root, busy) => !busy && !string.IsNullOrWhiteSpace(root));
+    RefreshCatalogCommand = ReactiveCommand.CreateFromTask(ExecuteRefreshCatalogAsync, canRefresh);
+
+    LoadTableCommand = ReactiveCommand.CreateFromTask<TableListItemViewModel>(ExecuteLoadTableAsync);
+    LoadTableCommand.ThrownExceptions.Subscribe(OnLoadTableFault);
+
+    Observable.CombineLatest(
+            OpenCatalogCommand.IsExecuting.StartWith(false),
+            LoadTableCommand.IsExecuting.StartWith(false),
+            (isCatalogExecuting, isTableExecuting) => isCatalogExecuting || isTableExecuting)
+        .DistinctUntilChanged()
+        .Subscribe(executing => IsBusy = executing);
+
+    this.WhenAnyValue(x => x.SelectedTable)
+        .WhereNotNull()
+        .InvokeCommand(LoadTableCommand);
   }
 
-  public ReactiveCommand<string, Unit> OpenCatalogCommand { get; }
+  private readonly ObservableCollection<TableListItemViewModel> _tables = new();
+  private readonly ObservableCollection<DemoTelemetryEvent> _telemetryEvents = new();
+
+  public Interaction<Unit, string?> SelectCatalogFolderInteraction { get; } = new();
+
+  public ReactiveCommand<string, CatalogModel> OpenCatalogCommand { get; }
+
+  public ReactiveCommand<Unit, Unit> BrowseCatalogCommand { get; }
+
+  public ReactiveCommand<Unit, Unit> RefreshCatalogCommand { get; }
+
+  public ReactiveCommand<TableListItemViewModel, Unit> LoadTableCommand { get; }
 
   public string? CatalogRoot
   {
@@ -45,10 +87,10 @@ public class ShellViewModel : ReactiveObject
     private set => this.RaiseAndSetIfChanged(ref _catalogRoot, value);
   }
 
-  public string? TableSummary
+  public string? CatalogStatus
   {
-    get => _tableSummary;
-    private set => this.RaiseAndSetIfChanged(ref _tableSummary, value);
+    get => _catalogStatus;
+    private set => this.RaiseAndSetIfChanged(ref _catalogStatus, value);
   }
 
   public bool IsBusy
@@ -57,41 +99,52 @@ public class ShellViewModel : ReactiveObject
     private set => this.RaiseAndSetIfChanged(ref _isBusy, value);
   }
 
-  private async Task ExecuteOpenCatalogAsync(string rootPath)
+  public ReadOnlyObservableCollection<TableListItemViewModel> Tables { get; }
+
+  public TableListItemViewModel? SelectedTable
+  {
+    get => _selectedTable;
+    set => this.RaiseAndSetIfChanged(ref _selectedTable, value);
+  }
+
+  public TablePageViewModel TablePage { get; }
+
+  public ReadOnlyObservableCollection<DemoTelemetryEvent> TelemetryEvents { get; }
+
+  private async Task<Unit> ExecuteBrowseCatalogAsync()
+  {
+    var folder = await SelectCatalogFolderInteraction.Handle(Unit.Default);
+    if (string.IsNullOrWhiteSpace(folder))
+    {
+      return Unit.Default;
+    }
+
+    await OpenCatalogCommand.Execute(folder).ToTask();
+    return Unit.Default;
+  }
+
+  private async Task<Unit> ExecuteRefreshCatalogAsync()
+  {
+    var root = CatalogRoot;
+    if (string.IsNullOrWhiteSpace(root))
+    {
+      return Unit.Default;
+    }
+
+    await OpenCatalogCommand.Execute(root).ToTask();
+    return Unit.Default;
+  }
+
+  private async Task<CatalogModel> ExecuteOpenCatalogAsync(string rootPath)
   {
     if (string.IsNullOrWhiteSpace(rootPath))
     {
-      return;
+      return new CatalogModel(string.Empty, Array.Empty<TableModel>());
     }
 
-    try
-    {
-      IsBusy = true;
-      CatalogRoot = rootPath;
-
-      var catalog = await _catalogService.LoadCatalogAsync(rootPath);
-      var payload = new Dictionary<string, object?>
-      {
-        ["root"] = catalog.RootPath,
-        ["tableCount"] = catalog.Tables.Count
-      };
-      _telemetrySink.Publish(new DemoTelemetryEvent("CatalogLoaded", DateTimeOffset.UtcNow, payload));
-
-      if (catalog.Tables.Count > 0)
-      {
-        var firstTable = catalog.Tables[0];
-        var page = await _pageService.LoadPageAsync(firstTable, new TablePageRequest(0, 25));
-        TableSummary = $"{catalog.Tables.Count} tables discovered. Preview rows: {page.Rows.Count} from {firstTable.Name}.";
-      }
-      else
-      {
-        TableSummary = "Catalog scanned successfully with no tables detected.";
-      }
-    }
-    finally
-    {
-      IsBusy = false;
-    }
+    CatalogRoot = rootPath;
+    var catalog = await _catalogService.LoadCatalogAsync(rootPath);
+    return catalog;
   }
 
   private void OnOpenCatalogFault(Exception exception)
@@ -101,7 +154,80 @@ public class ShellViewModel : ReactiveObject
     {
       ["message"] = exception.Message
     };
-    _telemetrySink.Publish(new DemoTelemetryEvent("CatalogLoadFailed", DateTimeOffset.UtcNow, payload));
-    TableSummary = "Catalog load failed. Review diagnostics for details.";
+    RecordTelemetry(new DemoTelemetryEvent("CatalogLoadFailed", DateTimeOffset.UtcNow, payload));
+    CatalogStatus = "Catalog load failed. Review diagnostics for details.";
+    _tables.Clear();
+    SelectedTable = null;
+  }
+
+  private void OnCatalogLoaded(CatalogModel catalog)
+  {
+    CatalogRoot = catalog.RootPath;
+    _tables.Clear();
+
+    foreach (var table in catalog.Tables.OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase))
+    {
+      _tables.Add(new TableListItemViewModel(table));
+    }
+
+    CatalogStatus = _tables.Count > 0
+        ? $"{_tables.Count} tables discovered. Select a table to preview rows."
+        : "Catalog scanned successfully with no tables detected.";
+
+    if (_tables.Count == 0)
+    {
+      var emptyRows = Array.Empty<IDictionary<string, object?>>();
+      TablePage.Apply(new TablePage(emptyRows, 0, 0, TablePage.PageSize));
+    }
+
+    var payload = new Dictionary<string, object?>
+    {
+      ["root"] = catalog.RootPath,
+      ["tableCount"] = catalog.Tables.Count
+    };
+    RecordTelemetry(new DemoTelemetryEvent("CatalogLoaded", DateTimeOffset.UtcNow, payload));
+
+    SelectedTable = _tables.FirstOrDefault();
+  }
+
+  private async Task ExecuteLoadTableAsync(TableListItemViewModel table)
+  {
+    var request = new TablePageRequest(0, 25);
+    var page = await _pageService.LoadPageAsync(table.Model, request);
+    TablePage.Apply(page);
+
+    CatalogStatus = _tables.Count > 0
+        ? $"{_tables.Count} tables available. Showing {table.Name}."
+        : CatalogStatus;
+
+    var payload = new Dictionary<string, object?>
+    {
+      ["table"] = table.Name,
+      ["indexes"] = table.Indexes.Count,
+      ["rows"] = page.Rows.Count
+    };
+    RecordTelemetry(new DemoTelemetryEvent("TablePreviewLoaded", DateTimeOffset.UtcNow, payload));
+  }
+
+  private void OnLoadTableFault(Exception exception)
+  {
+    _logger.LogError(exception, "Table preview load failed");
+    var payload = new Dictionary<string, object?>
+    {
+      ["message"] = exception.Message
+    };
+    RecordTelemetry(new DemoTelemetryEvent("TablePreviewFailed", DateTimeOffset.UtcNow, payload));
+    CatalogStatus = "Table preview failed. Check diagnostics for more information.";
+  }
+
+  private void RecordTelemetry(DemoTelemetryEvent telemetryEvent)
+  {
+    _telemetrySink.Publish(telemetryEvent);
+
+    _telemetryEvents.Insert(0, telemetryEvent);
+    while (_telemetryEvents.Count > 64)
+    {
+      _telemetryEvents.RemoveAt(_telemetryEvents.Count - 1);
+    }
   }
 }

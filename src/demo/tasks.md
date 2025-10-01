@@ -3,11 +3,11 @@
 Source blueprint: [docs/demo/avalonia-reactiveui-demo-plan.md](../../docs/demo/avalonia-reactiveui-demo-plan.md)
 
 ## Milestone M1 – App Shell & Catalog Browser
-- [ ] Scaffold Avalonia desktop host with ReactiveUI composition root.
-- [ ] Implement catalog scanning service and basic directory selection flow.
-- [ ] Build table/index listing view models with paging placeholders.
-- [ ] Wire diagnostics/logging sinks and sample telemetry events.
-- [ ] Add integration smoke harness once basic navigation is ready.
+- [x] Scaffold Avalonia desktop host with ReactiveUI composition root.
+- [x] Implement catalog scanning service and basic directory selection flow.
+- [x] Build table/index listing view models with paging placeholders.
+- [x] Wire diagnostics/logging sinks and sample telemetry events.
+- [x] Add integration smoke harness once basic navigation is ready.
 
 ## Milestone M2 – DDL & Index Basics
 - [ ] Generate DDL preview scripts for create/alter/drop operations.

@@ -4,19 +4,55 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         x:Class="XBase.Demo.App.Views.MainWindow"
-        Width="1024"
-        Height="640"
+        Width="1100"
+        Height="680"
         Title="xBase Demo Shell"
         mc:Ignorable="d">
-    <Grid RowDefinitions="Auto,*" ColumnDefinitions="*">
-        <StackPanel Orientation="Horizontal" Margin="12" Spacing="12">
-            <TextBlock Text="Catalog Root:" VerticalAlignment="Center" FontWeight="Medium" />
-            <TextBlock Text="{Binding CatalogRoot, FallbackValue=Select a directory}" VerticalAlignment="Center" />
-            <TextBlock Text="{Binding TableSummary}" VerticalAlignment="Center" Margin="12,0,0,0" />
-        </StackPanel>
+  <Grid RowDefinitions="Auto,Auto,*" ColumnDefinitions="*">
+    <StackPanel Orientation="Horizontal" Margin="12" Spacing="12">
+      <Button Content="Open Catalog…" Command="{Binding BrowseCatalogCommand}" />
+      <Button Content="Reload" Command="{Binding RefreshCatalogCommand}" />
+      <ProgressBar Width="120" Height="18" IsIndeterminate="True" IsVisible="{Binding IsBusy}" VerticalAlignment="Center" />
+      <TextBlock Text="Catalog Root:" VerticalAlignment="Center" FontWeight="Medium" />
+      <TextBlock Text="{Binding CatalogRoot, FallbackValue=Select a directory}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Width="320" />
+    </StackPanel>
 
-        <Border Grid.Row="1" Margin="12" Padding="12" BorderBrush="#FF4D596A" BorderThickness="1" CornerRadius="6">
-            <TextBlock Text="Demo grid placeholder – wiring ready for implementation." TextWrapping="Wrap" />
-        </Border>
+    <Border Grid.Row="1" Margin="12,0,12,12" Padding="8" Background="#FFEFF4F8" CornerRadius="6">
+      <TextBlock Text="{Binding CatalogStatus}" TextWrapping="Wrap" />
+    </Border>
+
+    <Grid Grid.Row="2" Margin="12" ColumnDefinitions="240,240,*" RowDefinitions="*">
+      <Border BorderBrush="#FF4D596A" BorderThickness="1" CornerRadius="6" Padding="6" Margin="0,0,12,0">
+        <StackPanel>
+          <TextBlock Text="Tables" FontWeight="SemiBold" Margin="0,0,0,6" />
+          <ListBox ItemsSource="{Binding Tables}" SelectedItem="{Binding SelectedTable}" />
+        </StackPanel>
+      </Border>
+
+      <Border Grid.Column="1" BorderBrush="#FF4D596A" BorderThickness="1" CornerRadius="6" Padding="6" Margin="0,0,12,0">
+        <Grid RowDefinitions="Auto,*">
+          <StackPanel Grid.Row="0" Orientation="Vertical" Spacing="6" Margin="0,0,0,8">
+            <TextBlock Text="Indexes" FontWeight="SemiBold" />
+            <ListBox ItemsSource="{Binding SelectedTable.Indexes}" Height="200" />
+          </StackPanel>
+          <Grid Grid.Row="1" RowDefinitions="Auto,*">
+            <TextBlock Grid.Row="0" Text="Telemetry" FontWeight="SemiBold" />
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,4,0,0">
+              <ItemsControl ItemsSource="{Binding TelemetryEvents}" />
+            </ScrollViewer>
+          </Grid>
+        </Grid>
+      </Border>
+
+      <Border Grid.Column="2" BorderBrush="#FF4D596A" BorderThickness="1" CornerRadius="6" Padding="12">
+        <StackPanel Spacing="12">
+          <TextBlock Text="Table Preview" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding TablePage.Summary}" FontStyle="Italic" />
+          <Border Background="#FFF8FAFD" Padding="12" CornerRadius="4">
+            <TextBlock Text="Data grid placeholder – paging hooks ready for implementation." TextWrapping="Wrap" />
+          </Border>
+        </StackPanel>
+      </Border>
     </Grid>
+  </Grid>
 </Window>
