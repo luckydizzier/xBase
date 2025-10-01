@@ -14,7 +14,8 @@ public sealed class DdlCommandTests
   public async Task ApplyCommand_WritesSchemaLog()
   {
     string repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../.."));
-    string toolAssembly = Path.Combine(repoRoot, "src", "XBase.Tools", "bin", "Release", "net8.0", "XBase.Tools.dll");
+    string buildConfiguration = GetBuildConfiguration();
+    string toolAssembly = Path.Combine(repoRoot, "src", "XBase.Tools", "bin", buildConfiguration, "net8.0", "XBase.Tools.dll");
     Assert.True(File.Exists(toolAssembly));
     string workspace = Path.Combine(Path.GetTempPath(), $"xbase-ddl-{Guid.NewGuid():N}");
     Directory.CreateDirectory(workspace);
@@ -73,7 +74,8 @@ public sealed class DdlCommandTests
   public async Task CheckpointDryRun_PrintsStatus()
   {
     string repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../.."));
-    string toolAssembly = Path.Combine(repoRoot, "src", "XBase.Tools", "bin", "Release", "net8.0", "XBase.Tools.dll");
+    string buildConfiguration = GetBuildConfiguration();
+    string toolAssembly = Path.Combine(repoRoot, "src", "XBase.Tools", "bin", buildConfiguration, "net8.0", "XBase.Tools.dll");
     Assert.True(File.Exists(toolAssembly));
     string workspace = Path.Combine(Path.GetTempPath(), $"xbase-ddl-{Guid.NewGuid():N}");
     Directory.CreateDirectory(workspace);
@@ -124,7 +126,8 @@ public sealed class DdlCommandTests
   public async Task PackDryRun_PrintsStatus()
   {
     string repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../.."));
-    string toolAssembly = Path.Combine(repoRoot, "src", "XBase.Tools", "bin", "Release", "net8.0", "XBase.Tools.dll");
+    string buildConfiguration = GetBuildConfiguration();
+    string toolAssembly = Path.Combine(repoRoot, "src", "XBase.Tools", "bin", buildConfiguration, "net8.0", "XBase.Tools.dll");
     Assert.True(File.Exists(toolAssembly));
     string workspace = Path.Combine(Path.GetTempPath(), $"xbase-ddl-{Guid.NewGuid():N}");
     Directory.CreateDirectory(workspace);
@@ -173,5 +176,18 @@ public sealed class DdlCommandTests
         Directory.Delete(workspace, recursive: true);
       }
     }
+  }
+
+  private static string GetBuildConfiguration()
+  {
+    var baseDirectory = new DirectoryInfo(AppContext.BaseDirectory);
+    string? configuration = baseDirectory.Parent?.Name;
+
+    if (string.IsNullOrEmpty(configuration))
+    {
+      throw new InvalidOperationException("Unable to determine build configuration for test execution.");
+    }
+
+    return configuration;
   }
 }
