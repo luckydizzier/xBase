@@ -1,0 +1,7 @@
+# Ignore generated DBF fixtures and sidecar binaries
+*.dbf
+*.dbt
+*.fpt
+*.ndx
+*.ntx
+*.mdx
