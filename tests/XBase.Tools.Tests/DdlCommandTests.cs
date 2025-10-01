@@ -5,6 +5,8 @@ using System.IO;
 using System.Threading.Tasks;
 using XBase.Abstractions;
 using XBase.Core.Ddl;
+using XBase.Core.Table;
+using XBase.TestSupport;
 
 namespace XBase.Tools.Tests;
 
@@ -174,6 +176,149 @@ public sealed class DdlCommandTests
       if (Directory.Exists(workspace))
       {
         Directory.Delete(workspace, recursive: true);
+      }
+    }
+  }
+
+  [Fact]
+  public async Task PackCommand_RewritesDbfAndClearsQueue()
+  {
+    string repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../.."));
+    string buildConfiguration = GetBuildConfiguration();
+    string toolAssembly = Path.Combine(repoRoot, "src", "XBase.Tools", "bin", buildConfiguration, "net8.0", "XBase.Tools.dll");
+    Assert.True(File.Exists(toolAssembly));
+    string workspacePath = Path.Combine(Path.GetTempPath(), $"xbase-ddl-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(workspacePath);
+    try
+    {
+      string tableName = "customers";
+      string dbfPath = DbfTestBuilder.CreateTable(
+        workspacePath,
+        tableName,
+        (false, "A001"),
+        (true, "A002"),
+        (false, "A003"));
+      string indexPath = DbfTestBuilder.CreateIndex(workspacePath, tableName + ".ntx", "legacy");
+      var mutator = new SchemaMutator(workspacePath);
+    var addColumn = new SchemaOperation(
+      SchemaOperationKind.AlterTableAddColumn,
+      tableName,
+      "balance",
+      new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+      {
+        ["column"] = "balance",
+        ["definition"] = "N(10,2)"
+      });
+    await mutator.ExecuteAsync(addColumn, "cli").ConfigureAwait(false);
+
+      using var process = new Process
+      {
+        StartInfo = new ProcessStartInfo
+        {
+          FileName = "dotnet",
+          ArgumentList =
+          {
+            toolAssembly,
+            "ddl",
+            "pack",
+            workspacePath,
+            tableName
+          },
+          RedirectStandardOutput = true,
+          RedirectStandardError = true,
+          UseShellExecute = false,
+          WorkingDirectory = repoRoot
+        }
+      };
+
+      process.Start();
+      Task<string> stdout = process.StandardOutput.ReadToEndAsync();
+      Task<string> stderr = process.StandardError.ReadToEndAsync();
+      await process.WaitForExitAsync();
+
+      string output = await stdout.ConfigureAwait(false);
+      string error = await stderr.ConfigureAwait(false);
+      Assert.True(process.ExitCode == 0, $"Command failed: {error}");
+      Assert.Contains("Pack completed", output);
+
+      var loader = new DbfTableLoader();
+      DbfTableDescriptor descriptor = loader.LoadDbf(dbfPath);
+      Assert.Equal<uint>(2u, descriptor.RecordCount);
+
+      string manifest = File.ReadAllText(indexPath);
+      Assert.Contains("xBase Index Manifest", manifest);
+      Assert.Contains("RecordCount: 2", manifest);
+
+      IReadOnlyList<SchemaBackfillTask> queue = await mutator.ReadBackfillQueueAsync(tableName).ConfigureAwait(false);
+      Assert.Empty(queue);
+    }
+    finally
+    {
+      if (Directory.Exists(workspacePath))
+      {
+        Directory.Delete(workspacePath, recursive: true);
+      }
+    }
+  }
+
+  [Fact]
+  public async Task ReindexCommand_RebuildsIndexes()
+  {
+    string repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../.."));
+    string buildConfiguration = GetBuildConfiguration();
+    string toolAssembly = Path.Combine(repoRoot, "src", "XBase.Tools", "bin", buildConfiguration, "net8.0", "XBase.Tools.dll");
+    Assert.True(File.Exists(toolAssembly));
+    string workspacePath = Path.Combine(Path.GetTempPath(), $"xbase-ddl-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(workspacePath);
+    try
+    {
+      string tableName = "orders";
+      DbfTestBuilder.CreateTable(
+        workspacePath,
+        tableName,
+        (false, "B001"),
+        (false, "B002"));
+      string indexPath = DbfTestBuilder.CreateIndex(workspacePath, tableName + ".ntx", "stale");
+
+      using var process = new Process
+      {
+        StartInfo = new ProcessStartInfo
+        {
+          FileName = "dotnet",
+          ArgumentList =
+          {
+            toolAssembly,
+            "ddl",
+            "reindex",
+            workspacePath,
+            tableName
+          },
+          RedirectStandardOutput = true,
+          RedirectStandardError = true,
+          UseShellExecute = false,
+          WorkingDirectory = repoRoot
+        }
+      };
+
+      process.Start();
+      Task<string> stdout = process.StandardOutput.ReadToEndAsync();
+      Task<string> stderr = process.StandardError.ReadToEndAsync();
+      await process.WaitForExitAsync();
+
+      string output = await stdout.ConfigureAwait(false);
+      string error = await stderr.ConfigureAwait(false);
+      Assert.True(process.ExitCode == 0, $"Command failed: {error}");
+      Assert.Contains("Reindex completed", output);
+
+      string manifest = File.ReadAllText(indexPath);
+      Assert.Contains("xBase Index Manifest", manifest);
+      Assert.Contains("RecordCount: 2", manifest);
+    }
+    finally
+    {
+      if (Directory.Exists(workspacePath))
+      {
+        Directory.Delete(workspacePath, recursive: true);
       }
     }
   }

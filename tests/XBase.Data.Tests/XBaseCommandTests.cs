@@ -133,6 +133,16 @@ public sealed class XBaseCommandTests
     {
       return ValueTask.FromResult<IReadOnlyList<SchemaBackfillTask>>(Array.Empty<SchemaBackfillTask>());
     }
+
+    public ValueTask<int> PackAsync(string tableName, CancellationToken cancellationToken = default)
+    {
+      return ValueTask.FromResult(0);
+    }
+
+    public ValueTask<int> ReindexAsync(string tableName, CancellationToken cancellationToken = default)
+    {
+      return ValueTask.FromResult(0);
+    }
   }
 
   private static ReadOnlySequence<byte> CreateRecord(int id, string name)

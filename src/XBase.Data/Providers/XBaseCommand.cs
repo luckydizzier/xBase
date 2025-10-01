@@ -66,22 +66,23 @@ public sealed class XBaseCommand : DbCommand
 
   public override int ExecuteNonQuery()
   {
-    if (TryExecuteSchemaOperation(CancellationToken.None).GetAwaiter().GetResult())
+    (bool executed, object? scalar) = TryExecuteSchemaCommandAsync(CancellationToken.None)
+      .GetAwaiter()
+      .GetResult();
+    if (!executed)
     {
       return 0;
     }
 
-    return 0;
+    return scalar is int value ? value : 0;
   }
 
   public override object? ExecuteScalar()
   {
-    if (TryExecuteSchemaOperation(CancellationToken.None).GetAwaiter().GetResult())
-    {
-      return _lastSchemaVersion;
-    }
-
-    return null;
+    (bool executed, object? scalar) = TryExecuteSchemaCommandAsync(CancellationToken.None)
+      .GetAwaiter()
+      .GetResult();
+    return executed ? scalar : null;
   }
 
   public override void Prepare()
@@ -117,20 +118,26 @@ public sealed class XBaseCommand : DbCommand
   private async Task<object?> ExecuteSchemaAsync(CancellationToken cancellationToken, bool returnScalar)
   {
     cancellationToken.ThrowIfCancellationRequested();
-    bool executed = await TryExecuteSchemaOperation(cancellationToken).ConfigureAwait(false);
+    (bool executed, object? scalar) = await TryExecuteSchemaCommandAsync(cancellationToken).ConfigureAwait(false);
     if (!executed)
     {
       return returnScalar ? null : 0;
     }
 
-    return returnScalar ? (object?)_lastSchemaVersion : 0;
+    if (returnScalar)
+    {
+      return scalar;
+    }
+
+    return scalar is int value ? value : 0;
   }
 
   private async ValueTask<DbDataReader> ExecuteReaderCoreAsync(CommandBehavior behavior, CancellationToken cancellationToken)
   {
     cancellationToken.ThrowIfCancellationRequested();
 
-    if (await TryExecuteSchemaOperation(cancellationToken).ConfigureAwait(false))
+    (bool executed, _) = await TryExecuteSchemaCommandAsync(cancellationToken).ConfigureAwait(false);
+    if (executed)
     {
       return XBaseDataReader.CreateEmpty();
     }
@@ -164,21 +171,40 @@ public sealed class XBaseCommand : DbCommand
     }
   }
 
-  private async Task<bool> TryExecuteSchemaOperation(CancellationToken cancellationToken)
+  private async Task<(bool executed, object? scalar)> TryExecuteSchemaCommandAsync(CancellationToken cancellationToken)
   {
     if (string.IsNullOrWhiteSpace(CommandText))
     {
-      return false;
+      return (false, null);
     }
 
-    if (!SchemaCommandParser.TryParse(CommandText, out SchemaOperation operation))
+    if (!SchemaCommandParser.TryParse(CommandText, out SchemaCommand command))
     {
-      return false;
+      return (false, null);
     }
 
-    _lastSchemaVersion = await _schemaMutator
-      .ExecuteAsync(operation, Author, cancellationToken)
-      .ConfigureAwait(false);
-    return true;
+    switch (command.Kind)
+    {
+      case SchemaCommandKind.Operation:
+        SchemaOperation operation = command.Operation!;
+        _lastSchemaVersion = await _schemaMutator
+          .ExecuteAsync(operation, Author, cancellationToken)
+          .ConfigureAwait(false);
+        return (true, _lastSchemaVersion);
+      case SchemaCommandKind.Pack:
+        int removed = await _schemaMutator
+          .PackAsync(command.TableName, cancellationToken)
+          .ConfigureAwait(false);
+        _lastSchemaVersion = null;
+        return (true, removed);
+      case SchemaCommandKind.Reindex:
+        int rebuilt = await _schemaMutator
+          .ReindexAsync(command.TableName, cancellationToken)
+          .ConfigureAwait(false);
+        _lastSchemaVersion = null;
+        return (true, rebuilt);
+      default:
+        return (false, null);
+    }
   }
 }

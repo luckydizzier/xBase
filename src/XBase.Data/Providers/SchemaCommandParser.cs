@@ -4,45 +4,157 @@ using XBase.Abstractions;
 
 namespace XBase.Data.Providers;
 
+internal enum SchemaCommandKind
+{
+  Operation,
+  Pack,
+  Reindex
+}
+
+internal readonly record struct SchemaCommand
+{
+  public SchemaCommand(SchemaOperation operation)
+  {
+    Operation = operation ?? throw new ArgumentNullException(nameof(operation));
+    TableName = operation.TableName;
+    Kind = SchemaCommandKind.Operation;
+  }
+
+  public SchemaCommand(SchemaCommandKind kind, string tableName)
+  {
+    if (kind == SchemaCommandKind.Operation)
+    {
+      throw new ArgumentException("Use the SchemaOperation constructor for operation commands.", nameof(kind));
+    }
+
+    if (string.IsNullOrWhiteSpace(tableName))
+    {
+      throw new ArgumentException("Table name must be provided.", nameof(tableName));
+    }
+
+    Kind = kind;
+    TableName = tableName;
+    Operation = null;
+  }
+
+  public SchemaCommandKind Kind { get; }
+
+  public SchemaOperation? Operation { get; }
+
+  public string TableName { get; }
+}
+
 internal static class SchemaCommandParser
 {
   private static readonly StringComparer Comparer = StringComparer.OrdinalIgnoreCase;
 
-  public static bool TryParse(string commandText, out SchemaOperation operation)
+  public static bool TryParse(string commandText, out SchemaCommand command)
   {
-    operation = null!;
+    command = default;
     if (string.IsNullOrWhiteSpace(commandText))
     {
       return false;
     }
 
     string normalized = commandText.Trim();
+    if (normalized.StartsWith("PACK", StringComparison.OrdinalIgnoreCase))
+    {
+      return TryParsePack(normalized, out command);
+    }
+
+    if (normalized.StartsWith("REINDEX", StringComparison.OrdinalIgnoreCase))
+    {
+      return TryParseReindex(normalized, out command);
+    }
+
     if (normalized.StartsWith("CREATE TABLE", StringComparison.OrdinalIgnoreCase))
     {
-      return TryParseCreateTable(normalized, out operation);
+      if (TryParseCreateTable(normalized, out SchemaOperation operation))
+      {
+        command = new SchemaCommand(operation);
+        return true;
+      }
+
+      return false;
     }
 
     if (normalized.StartsWith("ALTER TABLE", StringComparison.OrdinalIgnoreCase))
     {
-      return TryParseAlterTable(normalized, out operation);
+      if (TryParseAlterTable(normalized, out SchemaOperation operation))
+      {
+        command = new SchemaCommand(operation);
+        return true;
+      }
+
+      return false;
     }
 
     if (normalized.StartsWith("DROP TABLE", StringComparison.OrdinalIgnoreCase))
     {
-      return TryParseDropTable(normalized, out operation);
+      if (TryParseDropTable(normalized, out SchemaOperation operation))
+      {
+        command = new SchemaCommand(operation);
+        return true;
+      }
+
+      return false;
     }
 
     if (normalized.StartsWith("CREATE INDEX", StringComparison.OrdinalIgnoreCase))
     {
-      return TryParseCreateIndex(normalized, out operation);
+      if (TryParseCreateIndex(normalized, out SchemaOperation operation))
+      {
+        command = new SchemaCommand(operation);
+        return true;
+      }
+
+      return false;
     }
 
     if (normalized.StartsWith("DROP INDEX", StringComparison.OrdinalIgnoreCase))
     {
-      return TryParseDropIndex(normalized, out operation);
+      if (TryParseDropIndex(normalized, out SchemaOperation operation))
+      {
+        command = new SchemaCommand(operation);
+        return true;
+      }
+
+      return false;
     }
 
     return false;
+  }
+
+  private static bool TryParsePack(string commandText, out SchemaCommand command)
+  {
+    command = default;
+    string remainder = commandText["PACK".Length..].Trim();
+    if (string.IsNullOrWhiteSpace(remainder))
+    {
+      return false;
+    }
+
+    int firstSpace = IndexOfWhitespace(remainder);
+    string tableName = firstSpace >= 0 ? remainder[..firstSpace] : remainder;
+    tableName = TrimIdentifier(tableName);
+    command = new SchemaCommand(SchemaCommandKind.Pack, tableName);
+    return true;
+  }
+
+  private static bool TryParseReindex(string commandText, out SchemaCommand command)
+  {
+    command = default;
+    string remainder = commandText["REINDEX".Length..].Trim();
+    if (string.IsNullOrWhiteSpace(remainder))
+    {
+      return false;
+    }
+
+    int firstSpace = IndexOfWhitespace(remainder);
+    string tableName = firstSpace >= 0 ? remainder[..firstSpace] : remainder;
+    tableName = TrimIdentifier(tableName);
+    command = new SchemaCommand(SchemaCommandKind.Reindex, tableName);
+    return true;
   }
 
   private static bool TryParseCreateTable(string commandText, out SchemaOperation operation)
