@@ -39,4 +39,16 @@ public sealed class NoOpSchemaMutator : ISchemaMutator
     IReadOnlyList<SchemaBackfillTask> empty = Array.Empty<SchemaBackfillTask>();
     return ValueTask.FromResult(empty);
   }
+
+  public ValueTask<int> PackAsync(string tableName, CancellationToken cancellationToken = default)
+  {
+    cancellationToken.ThrowIfCancellationRequested();
+    return ValueTask.FromResult(0);
+  }
+
+  public ValueTask<int> ReindexAsync(string tableName, CancellationToken cancellationToken = default)
+  {
+    cancellationToken.ThrowIfCancellationRequested();
+    return ValueTask.FromResult(0);
+  }
 }

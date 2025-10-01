@@ -36,7 +36,8 @@ public enum SchemaOperationKind
   CreateIndex,
   DropIndex,
   Checkpoint,
-  Pack
+  Pack,
+  Reindex
 }
 
 public sealed record SchemaOperation
@@ -374,6 +375,14 @@ public interface ISchemaMutator
     CancellationToken cancellationToken = default);
 
   ValueTask<IReadOnlyList<SchemaBackfillTask>> ReadBackfillQueueAsync(
+    string tableName,
+    CancellationToken cancellationToken = default);
+
+  ValueTask<int> PackAsync(
+    string tableName,
+    CancellationToken cancellationToken = default);
+
+  ValueTask<int> ReindexAsync(
     string tableName,
     CancellationToken cancellationToken = default);
 }

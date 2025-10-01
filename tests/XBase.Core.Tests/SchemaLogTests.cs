@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using XBase.Abstractions;
 using XBase.Core.Ddl;
+using XBase.TestSupport;
 
 namespace XBase.Core.Tests;
 
@@ -74,6 +75,7 @@ public sealed class SchemaLogTests
   {
     using var workspace = new TemporaryWorkspace();
     var mutator = new SchemaMutator(workspace.DirectoryPath);
+    DbfTestBuilder.CreateTable(workspace.DirectoryPath, "customers", (false, "A001"));
 
     var addColumn = new SchemaOperation(
       SchemaOperationKind.AlterTableAddColumn,
@@ -102,6 +104,7 @@ public sealed class SchemaLogTests
   {
     using var workspace = new TemporaryWorkspace();
     var mutator = new SchemaMutator(workspace.DirectoryPath);
+    DbfTestBuilder.CreateTable(workspace.DirectoryPath, "customers", (false, "A001"));
 
     var addColumn = new SchemaOperation(
       SchemaOperationKind.AlterTableAddColumn,
@@ -121,6 +124,7 @@ public sealed class SchemaLogTests
     Assert.Equal(version, queue[0].Version);
 
     var freshMutator = new SchemaMutator(workspace.DirectoryPath);
+    DbfTestBuilder.CreateTable(workspace.DirectoryPath, "customers", (false, "A001"));
     IReadOnlyList<SchemaBackfillTask> persisted = await freshMutator.ReadBackfillQueueAsync("customers").ConfigureAwait(false);
     Assert.Single(persisted);
 

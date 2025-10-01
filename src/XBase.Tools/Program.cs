@@ -17,6 +17,7 @@ var commands = new Dictionary<string, Func<Queue<string>, Task<int>>>(StringComp
   ["test"] = _ => RunDotNetAsync("test", "xBase.sln", "--configuration", "Release"),
   ["publish"] = _ => RunDotNetAsync("pack", "xBase.sln", "-c", "Release", "-o", "artifacts/packages"),
   ["dbfinfo"] = DbfInfoAsync,
+  ["dbfreindex"] = DbfReindexAsync,
   ["ddl"] = DdlAsync
 };
 
@@ -58,7 +59,8 @@ static void PrintUsage()
   Console.WriteLine("  test     Run 'dotnet test xBase.sln --configuration Release'.");
   Console.WriteLine("  publish  Run 'dotnet pack xBase.sln -c Release -o artifacts/packages'.");
   Console.WriteLine("  dbfinfo  Display header metadata for a DBF file or directory.");
-  Console.WriteLine("  ddl      Manage online DDL operations (apply/checkpoint/pack).");
+  Console.WriteLine("  dbfreindex  Rebuild indexes for a DBF file or table.");
+  Console.WriteLine("  ddl      Manage online DDL operations (apply/checkpoint/pack/reindex).");
 }
 
 static Task<int> RunDotNetAsync(string verb, params string[] arguments)
@@ -204,7 +206,7 @@ static async Task<int> DdlAsync(Queue<string> arguments)
 {
   if (arguments.Count == 0)
   {
-    Console.Error.WriteLine("ddl requires a subcommand (apply/checkpoint/pack).");
+    Console.Error.WriteLine("ddl requires a subcommand (apply/checkpoint/pack/reindex).");
     return 1;
   }
 
@@ -217,6 +219,8 @@ static async Task<int> DdlAsync(Queue<string> arguments)
       return await DdlCheckpointAsync(arguments).ConfigureAwait(false);
     case "pack":
       return await DdlPackAsync(arguments).ConfigureAwait(false);
+    case "reindex":
+      return await DdlReindexAsync(arguments).ConfigureAwait(false);
     default:
       Console.Error.WriteLine($"Unknown ddl subcommand '{subcommand}'.");
       return 1;
@@ -370,6 +374,89 @@ static async Task<int> DdlPackAsync(Queue<string> arguments)
 
   int removed = await mutator.PackAsync(table).ConfigureAwait(false);
   Console.WriteLine($"Pack completed for {table}; cleared {removed} backfill tasks.");
+  return 0;
+}
+
+static async Task<int> DdlReindexAsync(Queue<string> arguments)
+{
+  if (arguments.Count < 2)
+  {
+    Console.Error.WriteLine("ddl reindex requires <root> <table> [--dry-run].");
+    return 1;
+  }
+
+  string root = arguments.Dequeue();
+  string table = arguments.Dequeue();
+  bool dryRun = false;
+
+  while (arguments.Count > 0)
+  {
+    string token = arguments.Peek();
+    if (token.Equals("--dry-run", StringComparison.OrdinalIgnoreCase))
+    {
+      dryRun = true;
+      arguments.Dequeue();
+      continue;
+    }
+
+    Console.Error.WriteLine($"Unexpected argument '{token}'.");
+    return 1;
+  }
+
+  var mutator = new SchemaMutator(root);
+  if (dryRun)
+  {
+    string dbfPath = Path.Combine(root, table + ".dbf");
+    int indexCount = 0;
+    if (File.Exists(dbfPath))
+    {
+      var loader = new DbfTableLoader();
+      DbfTableDescriptor descriptor = loader.LoadDbf(dbfPath);
+      indexCount = descriptor.Indexes.Count;
+    }
+
+    Console.WriteLine($"[dry-run] reindex for {table} would rebuild {indexCount} index files.");
+    return 0;
+  }
+
+  int rebuilt = await mutator.ReindexAsync(table).ConfigureAwait(false);
+  Console.WriteLine($"Reindex completed for {table}; rebuilt {rebuilt} index files.");
+  return 0;
+}
+
+static async Task<int> DbfReindexAsync(Queue<string> arguments)
+{
+  if (arguments.Count == 0)
+  {
+    Console.Error.WriteLine("dbfreindex requires <dbf-path> or <root> <table>.");
+    return 1;
+  }
+
+  string target = arguments.Dequeue();
+  string root;
+  string table;
+
+  if (File.Exists(target) && string.Equals(Path.GetExtension(target), ".dbf", StringComparison.OrdinalIgnoreCase))
+  {
+    string fullPath = Path.GetFullPath(target);
+    root = Path.GetDirectoryName(fullPath) ?? Environment.CurrentDirectory;
+    table = Path.GetFileNameWithoutExtension(fullPath) ?? Path.GetFileName(fullPath);
+  }
+  else
+  {
+    if (arguments.Count == 0)
+    {
+      Console.Error.WriteLine("dbfreindex requires <dbf-path> or <root> <table>.");
+      return 1;
+    }
+
+    root = target;
+    table = arguments.Dequeue();
+  }
+
+  var mutator = new SchemaMutator(root);
+  int rebuilt = await mutator.ReindexAsync(table).ConfigureAwait(false);
+  Console.WriteLine($"Reindex completed for {table}; rebuilt {rebuilt} index files.");
   return 0;
 }
 

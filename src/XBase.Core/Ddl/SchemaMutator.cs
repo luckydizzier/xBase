@@ -1,9 +1,13 @@
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using XBase.Abstractions;
+using XBase.Core.Table;
 
 namespace XBase.Core.Ddl;
 
@@ -11,8 +15,9 @@ public sealed class SchemaMutator : ISchemaMutator
 {
   private readonly string _rootDirectory;
   private readonly Func<DateTimeOffset> _clock;
+  private readonly DbfTableLoader _tableLoader;
 
-  public SchemaMutator(string rootDirectory, Func<DateTimeOffset>? clock = null)
+  public SchemaMutator(string rootDirectory, Func<DateTimeOffset>? clock = null, DbfTableLoader? tableLoader = null)
   {
     if (string.IsNullOrWhiteSpace(rootDirectory))
     {
@@ -22,6 +27,7 @@ public sealed class SchemaMutator : ISchemaMutator
     _rootDirectory = Path.GetFullPath(rootDirectory);
     Directory.CreateDirectory(_rootDirectory);
     _clock = clock ?? (() => DateTimeOffset.UtcNow);
+    _tableLoader = tableLoader ?? new DbfTableLoader();
   }
 
   public async ValueTask<SchemaVersion> ExecuteAsync(
@@ -98,16 +104,102 @@ public sealed class SchemaMutator : ISchemaMutator
 
   public async ValueTask<int> PackAsync(string tableName, CancellationToken cancellationToken = default)
   {
-    var queue = new SchemaBackfillQueue(GetBackfillPath(tableName));
-    IReadOnlyList<SchemaBackfillTask> tasks = await queue.ReadAsync(cancellationToken).ConfigureAwait(false);
-    if (tasks.Count == 0)
+    if (string.IsNullOrWhiteSpace(tableName))
     {
-      return 0;
+      throw new ArgumentException("Table name must be provided.", nameof(tableName));
     }
 
-    SchemaVersion latest = tasks[^1].Version;
-    await queue.RemoveUpToAsync(latest, cancellationToken).ConfigureAwait(false);
+    string tablePath = GetTablePath(tableName);
+    if (!File.Exists(tablePath))
+    {
+      throw new FileNotFoundException($"Table '{tableName}' was not found for compaction.", tablePath);
+    }
+
+    DbfTableDescriptor descriptor = _tableLoader.LoadDbf(tablePath);
+    string tempPath = tablePath + ".pack";
+    string? directory = Path.GetDirectoryName(tempPath);
+    if (!string.IsNullOrEmpty(directory))
+    {
+      Directory.CreateDirectory(directory);
+    }
+
+    byte[] header = new byte[descriptor.HeaderLength];
+    uint survivors = 0;
+
+    await using (FileStream source = new(tablePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+    await using (FileStream destination = new(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+    {
+      await source.ReadExactlyAsync(header, cancellationToken).ConfigureAwait(false);
+      await destination.WriteAsync(header, cancellationToken).ConfigureAwait(false);
+
+      byte[] recordBuffer = new byte[descriptor.RecordLength];
+      while (true)
+      {
+        cancellationToken.ThrowIfCancellationRequested();
+        int marker = source.ReadByte();
+        if (marker < 0)
+        {
+          break;
+        }
+
+        if (marker == 0x1A)
+        {
+          break;
+        }
+
+        if (recordBuffer.Length == 0)
+        {
+          throw new InvalidDataException($"Record length for '{tableName}' is zero; cannot compact.");
+        }
+
+        recordBuffer[0] = (byte)marker;
+        await source
+          .ReadExactlyAsync(recordBuffer.AsMemory(1, recordBuffer.Length - 1), cancellationToken)
+          .ConfigureAwait(false);
+
+        if (recordBuffer[0] != 0x2A && recordBuffer[0] != (byte)'*')
+        {
+          await destination.WriteAsync(recordBuffer, cancellationToken).ConfigureAwait(false);
+          survivors++;
+        }
+      }
+
+      await destination.WriteAsync(new byte[] { 0x1A }, cancellationToken).ConfigureAwait(false);
+      UpdateHeaderMetadata(header, survivors);
+      destination.Position = 0;
+      await destination.WriteAsync(header, cancellationToken).ConfigureAwait(false);
+      await destination.FlushAsync(cancellationToken).ConfigureAwait(false);
+      destination.Flush(true);
+    }
+
+    SwapFiles(tempPath, tablePath);
+    await RewriteIndexesAsync(tablePath, descriptor, survivors, cancellationToken).ConfigureAwait(false);
+
+    var queue = new SchemaBackfillQueue(GetBackfillPath(tableName));
+    IReadOnlyList<SchemaBackfillTask> tasks = await queue.ReadAsync(cancellationToken).ConfigureAwait(false);
+    if (tasks.Count > 0)
+    {
+      await queue.RemoveUpToAsync(tasks[^1].Version, cancellationToken).ConfigureAwait(false);
+    }
+
     return tasks.Count;
+  }
+
+  public async ValueTask<int> ReindexAsync(string tableName, CancellationToken cancellationToken = default)
+  {
+    if (string.IsNullOrWhiteSpace(tableName))
+    {
+      throw new ArgumentException("Table name must be provided.", nameof(tableName));
+    }
+
+    string tablePath = GetTablePath(tableName);
+    if (!File.Exists(tablePath))
+    {
+      throw new FileNotFoundException($"Table '{tableName}' was not found for reindexing.", tablePath);
+    }
+
+    DbfTableDescriptor descriptor = _tableLoader.LoadDbf(tablePath);
+    return await RewriteIndexesAsync(tablePath, descriptor, descriptor.RecordCount, cancellationToken).ConfigureAwait(false);
   }
 
   private string GetLogPath(string tableName)
@@ -118,6 +210,11 @@ public sealed class SchemaMutator : ISchemaMutator
   private string GetBackfillPath(string tableName)
   {
     return Path.Combine(_rootDirectory, tableName + ".ddlq");
+  }
+
+  private string GetTablePath(string tableName)
+  {
+    return Path.Combine(_rootDirectory, tableName + ".dbf");
   }
 
   private static bool RequiresBackfill(SchemaOperationKind kind)
@@ -161,5 +258,125 @@ public sealed class SchemaMutator : ISchemaMutator
     }
 
     await queue.RemoveUpToAsync(tasks[^1].Version, cancellationToken).ConfigureAwait(false);
+  }
+
+  private static void UpdateHeaderMetadata(Span<byte> header, uint recordCount)
+  {
+    DateTime utcNow = DateTime.UtcNow;
+    int year = Math.Clamp(utcNow.Year - 1900, 0, 255);
+    header[1] = (byte)year;
+    header[2] = (byte)utcNow.Month;
+    header[3] = (byte)utcNow.Day;
+    BinaryPrimitives.WriteUInt32LittleEndian(header[4..8], recordCount);
+  }
+
+  private async ValueTask<int> RewriteIndexesAsync(
+    string tablePath,
+    DbfTableDescriptor descriptor,
+    uint recordCount,
+    CancellationToken cancellationToken)
+  {
+    if (descriptor.Sidecars.IndexFileNames.Count == 0)
+    {
+      return 0;
+    }
+
+    string? directory = Path.GetDirectoryName(tablePath);
+    if (!string.IsNullOrEmpty(directory))
+    {
+      Directory.CreateDirectory(directory);
+    }
+
+    int rebuilt = 0;
+    foreach (string indexFile in descriptor.Sidecars.IndexFileNames)
+    {
+      string indexPath = Path.Combine(directory ?? _rootDirectory, indexFile);
+      string tempPath = indexPath + ".rebuild";
+      string manifest = BuildIndexManifest(descriptor, recordCount, indexFile);
+      string? indexDirectory = Path.GetDirectoryName(indexPath);
+      if (!string.IsNullOrEmpty(indexDirectory))
+      {
+        Directory.CreateDirectory(indexDirectory);
+      }
+
+      await File.WriteAllTextAsync(tempPath, manifest, cancellationToken).ConfigureAwait(false);
+      SwapFiles(tempPath, indexPath);
+      rebuilt++;
+    }
+
+    return rebuilt;
+  }
+
+  private static string BuildIndexManifest(
+    DbfTableDescriptor descriptor,
+    uint recordCount,
+    string fileName)
+  {
+    IIndexDescriptor? indexDescriptor = descriptor.Indexes
+      .OfType<IndexDescriptor>()
+      .FirstOrDefault(index => !string.IsNullOrEmpty(index.FileName) &&
+        string.Equals(index.FileName, fileName, StringComparison.OrdinalIgnoreCase));
+
+    string expression = indexDescriptor?.Expression ?? string.Empty;
+    var builder = new StringBuilder();
+    builder.AppendLine("xBase Index Manifest");
+    builder.AppendLine($"Table: {descriptor.Name}");
+    builder.AppendLine($"IndexFile: {fileName}");
+    if (indexDescriptor is not null)
+    {
+      builder.AppendLine($"Index: {indexDescriptor.Name}");
+    }
+
+    if (!string.IsNullOrWhiteSpace(expression))
+    {
+      builder.AppendLine($"Expression: {expression}");
+    }
+
+    builder.AppendLine($"RecordCount: {recordCount}");
+    builder.AppendLine($"Fields: {string.Join(',', descriptor.Fields.Select(field => field.Name))}");
+    return builder.ToString();
+  }
+
+  private static void SwapFiles(string sourcePath, string destinationPath)
+  {
+    string backupPath = destinationPath + ".bak";
+    try
+    {
+      try
+      {
+        File.Replace(sourcePath, destinationPath, backupPath, ignoreMetadataErrors: true);
+      }
+      catch (PlatformNotSupportedException)
+      {
+        ReplaceByMove(sourcePath, destinationPath, backupPath);
+      }
+      catch (IOException) when (!OperatingSystem.IsWindows())
+      {
+        ReplaceByMove(sourcePath, destinationPath, backupPath);
+      }
+    }
+    finally
+    {
+      if (File.Exists(sourcePath))
+      {
+        File.Delete(sourcePath);
+      }
+
+      if (File.Exists(backupPath))
+      {
+        File.Delete(backupPath);
+      }
+    }
+  }
+
+  private static void ReplaceByMove(string sourcePath, string destinationPath, string backupPath)
+  {
+    if (File.Exists(destinationPath))
+    {
+      File.Copy(destinationPath, backupPath, overwrite: true);
+      File.Delete(destinationPath);
+    }
+
+    File.Move(sourcePath, destinationPath, overwrite: true);
   }
 }
