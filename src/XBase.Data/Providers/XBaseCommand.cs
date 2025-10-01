@@ -17,18 +17,26 @@ public sealed class XBaseCommand : DbCommand
     "_command",
     null,
     Array.Empty<IFieldDescriptor>(),
-    Array.Empty<IIndexDescriptor>());
+    Array.Empty<IIndexDescriptor>(),
+    SchemaVersion.Start);
 
   private readonly XBaseConnection _connection;
   private readonly ICursorFactory _cursorFactory;
   private string _commandText = string.Empty;
   private readonly XBaseParameterCollection _parameters = new();
+  private readonly ISchemaMutator _schemaMutator;
+  private SchemaVersion? _lastSchemaVersion;
 
-  public XBaseCommand(XBaseConnection connection, ICursorFactory cursorFactory)
+  public XBaseCommand(XBaseConnection connection, ICursorFactory cursorFactory, ISchemaMutator schemaMutator)
   {
     _connection = connection;
     _cursorFactory = cursorFactory;
+    _schemaMutator = schemaMutator;
   }
+
+  public SchemaVersion? LastSchemaVersion => _lastSchemaVersion;
+
+  public string Author { get; set; } = Environment.UserName ?? "xbase";
 
   [AllowNull]
   public override string CommandText
@@ -61,11 +69,21 @@ public sealed class XBaseCommand : DbCommand
 
   public override int ExecuteNonQuery()
   {
+    if (TryExecuteSchemaOperation(null).GetAwaiter().GetResult())
+    {
+      return 0;
+    }
+
     return 0;
   }
 
   public override object? ExecuteScalar()
   {
+    if (TryExecuteSchemaOperation(null).GetAwaiter().GetResult())
+    {
+      return _lastSchemaVersion;
+    }
+
     return null;
   }
 
@@ -95,16 +113,15 @@ public sealed class XBaseCommand : DbCommand
     }
   }
 
-  public override Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken)
+  public override async Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken)
   {
-    cancellationToken.ThrowIfCancellationRequested();
-    return Task.FromResult(0);
+    object? result = await ExecuteSchemaAsync(cancellationToken, returnScalar: false).ConfigureAwait(false);
+    return result is int value ? value : 0;
   }
 
   public override Task<object?> ExecuteScalarAsync(CancellationToken cancellationToken)
   {
-    cancellationToken.ThrowIfCancellationRequested();
-    return Task.FromResult<object?>(null);
+    return ExecuteSchemaAsync(cancellationToken, returnScalar: true);
   }
 
   protected override Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior, CancellationToken cancellationToken)
@@ -112,5 +129,36 @@ public sealed class XBaseCommand : DbCommand
     cancellationToken.ThrowIfCancellationRequested();
     DbDataReader reader = new XBaseDataReader(Array.Empty<ReadOnlySequence<byte>>());
     return Task.FromResult(reader);
+  }
+
+  private async Task<object?> ExecuteSchemaAsync(CancellationToken cancellationToken, bool returnScalar)
+  {
+    cancellationToken.ThrowIfCancellationRequested();
+    bool executed = await TryExecuteSchemaOperation(cancellationToken).ConfigureAwait(false);
+    if (!executed)
+    {
+      return returnScalar ? null : 0;
+    }
+
+    return returnScalar ? (object?)_lastSchemaVersion : 0;
+  }
+
+  private async Task<bool> TryExecuteSchemaOperation(CancellationToken? cancellationToken)
+  {
+    if (string.IsNullOrWhiteSpace(CommandText))
+    {
+      return false;
+    }
+
+    if (!SchemaCommandParser.TryParse(CommandText, out SchemaOperation operation))
+    {
+      return false;
+    }
+
+    CancellationToken token = cancellationToken ?? CancellationToken.None;
+    _lastSchemaVersion = await _schemaMutator
+      .ExecuteAsync(operation, Author, token)
+      .ConfigureAwait(false);
+    return true;
   }
 }

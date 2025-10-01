@@ -46,11 +46,12 @@ File System & OS (memory-mapped I/O, file locks)
 
 ### 2.2 XBase.Abstractions
 - Contracts: `ITable`, `IIndex`, `ICursor`, `ISchemaProvider`, `ITransaction`, `IJournal`, `ILocker`, `IValueEncoder`, `IPageCache`.
+- Schema evolution primitives: `SchemaVersion`, `SchemaOperation`, `SchemaLogEntry`, `SchemaBackfillTask`, `ISchemaMutator`.
 - SPI for adding future format modules (Phase B CDX/FPT, future VFP module).
 
 ### 2.3 XBase.Data (ADO.NET)
 - Implements `DbConnection`, `DbCommand`, `DbDataReader`, `DbTransaction`, `DbParameter`.
-- SQL-subset parser → query plan builder (index selection + scan).
+- SQL-subset parser → query plan builder (index selection + scan) and DDL interpreter for `CREATE/DROP TABLE`, `ALTER TABLE`, `CREATE/DROP INDEX` routed through `ISchemaMutator`.
 - Connection string policy parsing (journal/locking/codepage/cache/deleted-flag).
 
 ### 2.4 XBase.EFCore
@@ -67,7 +68,7 @@ File System & OS (memory-mapped I/O, file locks)
 - Validators: header/index consistency checkers.
 
 ### 2.7 XBase.Tools
-- CLI utilities: `dbfinfo`, `dbfdump`, `dbfreindex`, `dbfpack`, `dbfconvert`.
+- CLI utilities: `dbfinfo`, `dbfdump`, `dbfreindex`, `dbfpack`, `dbfconvert`, plus online DDL helpers `ddl apply/checkpoint/pack`.
 
 ---
 
@@ -162,20 +163,20 @@ File System & OS (memory-mapped I/O, file locks)
 ## 10. Online DDL & Schema Evolution (M3)
 
 - **In-Place Online DDL (IPOD)** maintains table availability for readers and the single-writer pipeline while schema mutations
-  append to a **schema-delta `.ddl` log** orchestrated by `XBase.Core`.
+  append to a **schema-delta `.ddl` log** handled by `SchemaLog` and `SchemaMutator` inside `XBase.Core`.
 - **Versioned projections** let cursors materialize records against the target schema version, with adapters to reshape legacy
-  rows until they are backfilled.
+  rows until they are backfilled via `SchemaBackfillQueue`.
 - **Lazy backfill** occurs opportunistically during writes and via background workers, respecting throttles and journaling
   checkpoints.
 - **Atomic checkpoints** consolidate applied deltas into refreshed DBF headers and regenerate catalog metadata while holding only
-  a short exclusive DDL lock.
+  a short exclusive DDL lock. `SchemaMutator.CreateCheckpointAsync` manages log compaction and backfill cleanup.
 - **Short exclusive DDL locks** protect header rewrites and index swap windows; standard reads/writes use shared locks plus
   version gates.
 - **Side-by-side index swaps** rebuild NTX/MDX artifacts under temp names and atomically rename once validated.
 - **Provider integration**: ADO.NET exposes `CREATE/DROP INDEX` and `ALTER TABLE` verbs; EF Core migrations target the same API
   and track schema version numbers to coordinate with the `.ddl` log.
 - **Tooling**: `xbase ddl apply`, `xbase ddl checkpoint`, and `xbase ddl pack` orchestrate delta ingestion, compaction, and
-  optional vacuum aligned with schema state.
+  optional vacuum aligned with schema state, with dry-run support.
 - **Recovery order**: Data journal replay runs first, followed by `.ddl` log replay to restore schema projections and resume
   pending backfill tasks.
 

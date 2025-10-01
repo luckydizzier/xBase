@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using XBase.Abstractions;
+using XBase.Core.Ddl;
 using XBase.Core.Table;
 
 var commands = new Dictionary<string, Func<Queue<string>, Task<int>>>(StringComparer.OrdinalIgnoreCase)
@@ -15,7 +16,8 @@ var commands = new Dictionary<string, Func<Queue<string>, Task<int>>>(StringComp
   ["build"] = _ => RunDotNetAsync("build", "xBase.sln", "-c", "Release"),
   ["test"] = _ => RunDotNetAsync("test", "xBase.sln", "--configuration", "Release"),
   ["publish"] = _ => RunDotNetAsync("pack", "xBase.sln", "-c", "Release", "-o", "artifacts/packages"),
-  ["dbfinfo"] = DbfInfoAsync
+  ["dbfinfo"] = DbfInfoAsync,
+  ["ddl"] = DdlAsync
 };
 
 if (args.Length == 0)
@@ -56,6 +58,7 @@ static void PrintUsage()
   Console.WriteLine("  test     Run 'dotnet test xBase.sln --configuration Release'.");
   Console.WriteLine("  publish  Run 'dotnet pack xBase.sln -c Release -o artifacts/packages'.");
   Console.WriteLine("  dbfinfo  Display header metadata for a DBF file or directory.");
+  Console.WriteLine("  ddl      Manage online DDL operations (apply/checkpoint/pack).");
 }
 
 static Task<int> RunDotNetAsync(string verb, params string[] arguments)
@@ -195,4 +198,227 @@ static async Task<int> RunProcessAsync(string fileName, string[] arguments)
   process.BeginErrorReadLine();
   await process.WaitForExitAsync();
   return process.ExitCode;
+}
+
+static async Task<int> DdlAsync(Queue<string> arguments)
+{
+  if (arguments.Count == 0)
+  {
+    Console.Error.WriteLine("ddl requires a subcommand (apply/checkpoint/pack).");
+    return 1;
+  }
+
+  string subcommand = arguments.Dequeue();
+  switch (subcommand.ToLowerInvariant())
+  {
+    case "apply":
+      return await DdlApplyAsync(arguments).ConfigureAwait(false);
+    case "checkpoint":
+      return await DdlCheckpointAsync(arguments).ConfigureAwait(false);
+    case "pack":
+      return await DdlPackAsync(arguments).ConfigureAwait(false);
+    default:
+      Console.Error.WriteLine($"Unknown ddl subcommand '{subcommand}'.");
+      return 1;
+  }
+}
+
+static async Task<int> DdlApplyAsync(Queue<string> arguments)
+{
+  if (arguments.Count < 3)
+  {
+    Console.Error.WriteLine("ddl apply requires <root> <table> <operation> [key=value] [--author <name>] [--dry-run].");
+    return 1;
+  }
+
+  string root = arguments.Dequeue();
+  string table = arguments.Dequeue();
+  string operationToken = arguments.Dequeue();
+  bool dryRun = false;
+  string? author = null;
+  Dictionary<string, string> properties = new(StringComparer.OrdinalIgnoreCase);
+
+  while (arguments.Count > 0)
+  {
+    string token = arguments.Peek();
+    if (token.Equals("--dry-run", StringComparison.OrdinalIgnoreCase))
+    {
+      dryRun = true;
+      arguments.Dequeue();
+      continue;
+    }
+
+    if (token.Equals("--author", StringComparison.OrdinalIgnoreCase))
+    {
+      arguments.Dequeue();
+      if (arguments.Count == 0)
+      {
+        Console.Error.WriteLine("--author requires a value.");
+        return 1;
+      }
+
+      author = arguments.Dequeue();
+      continue;
+    }
+
+    if (token.Contains('='))
+    {
+      arguments.Dequeue();
+      string[] pair = token.Split('=', 2);
+      properties[pair[0]] = pair.Length > 1 ? pair[1] : string.Empty;
+      continue;
+    }
+
+    Console.Error.WriteLine($"Unexpected argument '{token}'.");
+    return 1;
+  }
+
+  if (!TryMapOperationKind(operationToken, out SchemaOperationKind kind))
+  {
+    Console.Error.WriteLine($"Unsupported operation '{operationToken}'.");
+    return 1;
+  }
+
+  string? objectName = ResolveObjectName(kind, properties);
+  var operation = new SchemaOperation(kind, table, objectName, properties);
+
+  if (dryRun)
+  {
+    Console.WriteLine($"[dry-run] {kind} for {table} would be appended to {Path.Combine(root, table + ".ddl")}.");
+    return 0;
+  }
+
+  var mutator = new SchemaMutator(root);
+  SchemaVersion version = await mutator.ExecuteAsync(operation, author).ConfigureAwait(false);
+  Console.WriteLine($"Applied {kind} for {table}; schema version is now {version.Value}.");
+  return 0;
+}
+
+static async Task<int> DdlCheckpointAsync(Queue<string> arguments)
+{
+  if (arguments.Count < 2)
+  {
+    Console.Error.WriteLine("ddl checkpoint requires <root> <table> [--dry-run].");
+    return 1;
+  }
+
+  string root = arguments.Dequeue();
+  string table = arguments.Dequeue();
+  bool dryRun = false;
+
+  while (arguments.Count > 0)
+  {
+    string token = arguments.Peek();
+    if (token.Equals("--dry-run", StringComparison.OrdinalIgnoreCase))
+    {
+      dryRun = true;
+      arguments.Dequeue();
+      continue;
+    }
+
+    Console.Error.WriteLine($"Unexpected argument '{token}'.");
+    return 1;
+  }
+
+  var mutator = new SchemaMutator(root);
+  if (dryRun)
+  {
+    IReadOnlyList<SchemaLogEntry> history = await mutator.ReadHistoryAsync(table).ConfigureAwait(false);
+    SchemaVersion target = history.Count == 0 ? SchemaVersion.Start : history[^1].Version;
+    Console.WriteLine($"[dry-run] checkpoint for {table} would seal version {target.Value}.");
+    return 0;
+  }
+
+  SchemaVersion version = await mutator.CreateCheckpointAsync(table).ConfigureAwait(false);
+  Console.WriteLine($"Checkpoint completed for {table} at version {version.Value}.");
+  return 0;
+}
+
+static async Task<int> DdlPackAsync(Queue<string> arguments)
+{
+  if (arguments.Count < 2)
+  {
+    Console.Error.WriteLine("ddl pack requires <root> <table> [--dry-run].");
+    return 1;
+  }
+
+  string root = arguments.Dequeue();
+  string table = arguments.Dequeue();
+  bool dryRun = false;
+
+  while (arguments.Count > 0)
+  {
+    string token = arguments.Peek();
+    if (token.Equals("--dry-run", StringComparison.OrdinalIgnoreCase))
+    {
+      dryRun = true;
+      arguments.Dequeue();
+      continue;
+    }
+
+    Console.Error.WriteLine($"Unexpected argument '{token}'.");
+    return 1;
+  }
+
+  var mutator = new SchemaMutator(root);
+  IReadOnlyList<SchemaBackfillTask> pending = await mutator.ReadBackfillQueueAsync(table).ConfigureAwait(false);
+  if (dryRun)
+  {
+    Console.WriteLine($"[dry-run] pack for {table} would compact {pending.Count} pending backfill tasks.");
+    return 0;
+  }
+
+  int removed = await mutator.PackAsync(table).ConfigureAwait(false);
+  Console.WriteLine($"Pack completed for {table}; cleared {removed} backfill tasks.");
+  return 0;
+}
+
+static bool TryMapOperationKind(string token, out SchemaOperationKind kind)
+{
+  switch (token.ToLowerInvariant())
+  {
+    case "create-table":
+      kind = SchemaOperationKind.CreateTable;
+      return true;
+    case "alter-add-column":
+      kind = SchemaOperationKind.AlterTableAddColumn;
+      return true;
+    case "alter-drop-column":
+      kind = SchemaOperationKind.AlterTableDropColumn;
+      return true;
+    case "alter-rename-column":
+      kind = SchemaOperationKind.AlterTableRenameColumn;
+      return true;
+    case "alter-modify-column":
+      kind = SchemaOperationKind.AlterTableModifyColumn;
+      return true;
+    case "drop-table":
+      kind = SchemaOperationKind.DropTable;
+      return true;
+    case "create-index":
+      kind = SchemaOperationKind.CreateIndex;
+      return true;
+    case "drop-index":
+      kind = SchemaOperationKind.DropIndex;
+      return true;
+    default:
+      kind = SchemaOperationKind.CreateTable;
+      return false;
+  }
+}
+
+static string? ResolveObjectName(SchemaOperationKind kind, IReadOnlyDictionary<string, string> properties)
+{
+  if (properties.TryGetValue("object", out string? explicitName))
+  {
+    return explicitName;
+  }
+
+  return kind switch
+  {
+    SchemaOperationKind.CreateIndex or SchemaOperationKind.DropIndex when properties.TryGetValue("index", out string? index) => index,
+    SchemaOperationKind.AlterTableAddColumn or SchemaOperationKind.AlterTableDropColumn or SchemaOperationKind.AlterTableModifyColumn when properties.TryGetValue("column", out string? column) => column,
+    SchemaOperationKind.AlterTableRenameColumn when properties.TryGetValue("to", out string? to) => to,
+    _ => null
+  };
 }

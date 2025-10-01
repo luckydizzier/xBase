@@ -18,11 +18,12 @@ public sealed class TableDescriptorTests
       new IndexDescriptor("Name", "UPPER(Name)", false)
     };
 
-    var descriptor = new TableDescriptor("Products", "Products.dbt", fields, indexes);
+    var descriptor = new TableDescriptor("Products", "Products.dbt", fields, indexes, SchemaVersion.Start);
 
     Assert.Equal("Products", descriptor.Name);
     Assert.Equal("Products.dbt", descriptor.MemoFileName);
     Assert.Single(descriptor.Fields);
     Assert.Single(descriptor.Indexes);
+    Assert.Equal(SchemaVersion.Start, descriptor.SchemaVersion);
   }
 }

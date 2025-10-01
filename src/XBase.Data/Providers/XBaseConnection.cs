@@ -16,16 +16,18 @@ public sealed class XBaseConnection : DbConnection
   private ConnectionState _state = ConnectionState.Closed;
   private readonly ICursorFactory _cursorFactory;
   private readonly IJournal _journal;
+  private readonly ISchemaMutator _schemaMutator;
 
   public XBaseConnection()
-    : this(new NoOpCursorFactory(), new NoOpJournal())
+    : this(new NoOpCursorFactory(), new NoOpJournal(), new NoOpSchemaMutator())
   {
   }
 
-  public XBaseConnection(ICursorFactory cursorFactory, IJournal journal)
+  public XBaseConnection(ICursorFactory cursorFactory, IJournal journal, ISchemaMutator schemaMutator)
   {
     _cursorFactory = cursorFactory;
     _journal = journal;
+    _schemaMutator = schemaMutator;
   }
 
   [AllowNull]
@@ -91,6 +93,33 @@ public sealed class XBaseConnection : DbConnection
 
   protected override DbCommand CreateDbCommand()
   {
-    return new XBaseCommand(this, _cursorFactory);
+    return new XBaseCommand(this, _cursorFactory, _schemaMutator);
+  }
+
+  private sealed class NoOpSchemaMutator : ISchemaMutator
+  {
+    public ValueTask<SchemaVersion> ExecuteAsync(
+      SchemaOperation operation,
+      string? author = null,
+      CancellationToken cancellationToken = default)
+    {
+      return ValueTask.FromResult(SchemaVersion.Start);
+    }
+
+    public ValueTask<IReadOnlyList<SchemaLogEntry>> ReadHistoryAsync(
+      string tableName,
+      CancellationToken cancellationToken = default)
+    {
+      IReadOnlyList<SchemaLogEntry> empty = Array.Empty<SchemaLogEntry>();
+      return ValueTask.FromResult(empty);
+    }
+
+    public ValueTask<IReadOnlyList<SchemaBackfillTask>> ReadBackfillQueueAsync(
+      string tableName,
+      CancellationToken cancellationToken = default)
+    {
+      IReadOnlyList<SchemaBackfillTask> empty = Array.Empty<SchemaBackfillTask>();
+      return ValueTask.FromResult(empty);
+    }
   }
 }
