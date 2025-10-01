@@ -123,8 +123,8 @@ public sealed class SqlTableResolver : ITableResolver
       return false;
     }
 
-      char[]? separators = null;
-      string[] tableTokens = tableSegment.Split(separators, StringSplitOptions.RemoveEmptyEntries);
+    char[]? separators = null;
+    string[] tableTokens = tableSegment.Split(separators, StringSplitOptions.RemoveEmptyEntries);
     if (tableTokens.Length == 0)
     {
       return false;
