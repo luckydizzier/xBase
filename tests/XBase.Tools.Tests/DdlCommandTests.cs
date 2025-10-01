@@ -200,16 +200,16 @@ public sealed class DdlCommandTests
         (false, "A003"));
       string indexPath = DbfTestBuilder.CreateIndex(workspacePath, tableName + ".ntx", "legacy");
       var mutator = new SchemaMutator(workspacePath);
-    var addColumn = new SchemaOperation(
-      SchemaOperationKind.AlterTableAddColumn,
-      tableName,
-      "balance",
-      new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-      {
-        ["column"] = "balance",
-        ["definition"] = "N(10,2)"
-      });
-    await mutator.ExecuteAsync(addColumn, "cli").ConfigureAwait(false);
+      var addColumn = new SchemaOperation(
+        SchemaOperationKind.AlterTableAddColumn,
+        tableName,
+        "balance",
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+          ["column"] = "balance",
+          ["definition"] = "N(10,2)"
+        });
+      await mutator.ExecuteAsync(addColumn, "cli").ConfigureAwait(false);
 
       using var process = new Process
       {

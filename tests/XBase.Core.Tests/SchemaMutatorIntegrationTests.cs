@@ -99,4 +99,44 @@ public sealed class SchemaMutatorIntegrationTests
     DbfTableDescriptor descriptor = loader.LoadDbf(dbfPath);
     Assert.Equal<uint>(2u, descriptor.RecordCount);
   }
+
+  [Fact]
+  public async Task ReindexAsync_WithPendingQueue_CompletesDeferredTasks()
+  {
+    using var workspace = new TemporaryWorkspace();
+    string tableName = "resume";
+    string dbfPath = DbfTestBuilder.CreateTable(
+      workspace.DirectoryPath,
+      tableName,
+      (false, "C001"),
+      (false, "C002"));
+    string indexFileName = tableName + ".ntx";
+    string indexPath = DbfTestBuilder.CreateIndex(workspace.DirectoryPath, indexFileName, "queued-index");
+
+    File.WriteAllText(indexPath, "stale");
+
+    var queue = new SchemaBackfillQueue(Path.Combine(workspace.DirectoryPath, tableName + ".ddlq"));
+    var properties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+      ["indexFile"] = indexFileName,
+      ["recordCount"] = "2"
+    };
+    SchemaBackfillTask pending = new(SchemaVersion.Start, SchemaOperationKind.Reindex, tableName, properties);
+    await queue.EnqueueAsync(new[] { pending }).ConfigureAwait(false);
+
+    var mutator = new SchemaMutator(workspace.DirectoryPath);
+    int rebuilt = await mutator.ReindexAsync(tableName).ConfigureAwait(false);
+    Assert.Equal(1, rebuilt);
+
+    string manifest = File.ReadAllText(indexPath);
+    Assert.Contains("xBase Index Manifest", manifest);
+    Assert.Contains("RecordCount: 2", manifest);
+
+    IReadOnlyList<SchemaBackfillTask> remaining = await mutator.ReadBackfillQueueAsync(tableName).ConfigureAwait(false);
+    Assert.Empty(remaining);
+
+    var loader = new DbfTableLoader();
+    DbfTableDescriptor descriptor = loader.LoadDbf(dbfPath);
+    Assert.Equal<uint>(2u, descriptor.RecordCount);
+  }
 }

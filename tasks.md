@@ -20,7 +20,7 @@
 - [x] Ensured `XBaseConnection` starts the journal for synchronous and asynchronous transactions with test coverage.
 - [x] Design and implement the WAL journal format covering FR-WT-1 – FR-WT-4 requirements with crash-recovery tests.
 - [x] Introduce lock coordination (file + optional record locks) and acceptance tests simulating concurrent access.
-- [ ] Implement deferred index maintenance hooks to enable safe reindex/pack flows.
+- [x] Implement deferred index maintenance hooks to enable safe reindex/pack flows.
 
 ## M5 – Provider Integrations ⏳
 - [ ] Complete ADO.NET command execution pipeline (parser, plan builder, `XBaseDataReader`) returning real records.

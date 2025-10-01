@@ -1,6 +1,7 @@
 using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -115,6 +116,8 @@ public sealed class SchemaMutator : ISchemaMutator
       throw new FileNotFoundException($"Table '{tableName}' was not found for compaction.", tablePath);
     }
 
+    await ProcessIndexRewriteQueueAsync(tableName, cancellationToken).ConfigureAwait(false);
+
     DbfTableDescriptor descriptor = _tableLoader.LoadDbf(tablePath);
     string tempPath = tablePath + ".pack";
     string? directory = Path.GetDirectoryName(tempPath);
@@ -173,7 +176,14 @@ public sealed class SchemaMutator : ISchemaMutator
     }
 
     SwapFiles(tempPath, tablePath);
-    await RewriteIndexesAsync(tablePath, descriptor, survivors, cancellationToken).ConfigureAwait(false);
+    DbfTableDescriptor refreshed = _tableLoader.LoadDbf(tablePath);
+    await ScheduleIndexRewriteAsync(
+        tableName,
+        SchemaOperationKind.Pack,
+        refreshed,
+        refreshed.RecordCount,
+        cancellationToken)
+      .ConfigureAwait(false);
 
     var queue = new SchemaBackfillQueue(GetBackfillPath(tableName));
     IReadOnlyList<SchemaBackfillTask> tasks = await queue.ReadAsync(cancellationToken).ConfigureAwait(false);
@@ -198,8 +208,16 @@ public sealed class SchemaMutator : ISchemaMutator
       throw new FileNotFoundException($"Table '{tableName}' was not found for reindexing.", tablePath);
     }
 
+    await ProcessIndexRewriteQueueAsync(tableName, cancellationToken).ConfigureAwait(false);
+
     DbfTableDescriptor descriptor = _tableLoader.LoadDbf(tablePath);
-    return await RewriteIndexesAsync(tablePath, descriptor, descriptor.RecordCount, cancellationToken).ConfigureAwait(false);
+    return await ScheduleIndexRewriteAsync(
+        tableName,
+        SchemaOperationKind.Reindex,
+        descriptor,
+        descriptor.RecordCount,
+        cancellationToken)
+      .ConfigureAwait(false);
   }
 
   private string GetLogPath(string tableName)
@@ -270,41 +288,162 @@ public sealed class SchemaMutator : ISchemaMutator
     BinaryPrimitives.WriteUInt32LittleEndian(header[4..8], recordCount);
   }
 
-  private async ValueTask<int> RewriteIndexesAsync(
-    string tablePath,
+  private async ValueTask<int> ScheduleIndexRewriteAsync(
+    string tableName,
+    SchemaOperationKind kind,
     DbfTableDescriptor descriptor,
     uint recordCount,
     CancellationToken cancellationToken)
   {
     if (descriptor.Sidecars.IndexFileNames.Count == 0)
     {
+      return await ProcessIndexRewriteQueueAsync(tableName, cancellationToken).ConfigureAwait(false);
+    }
+
+    var queue = new SchemaBackfillQueue(GetBackfillPath(tableName));
+    var tasks = new List<SchemaBackfillTask>(descriptor.Sidecars.IndexFileNames.Count);
+
+    foreach (string indexFile in descriptor.Sidecars.IndexFileNames)
+    {
+      var properties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+      {
+        ["table"] = descriptor.Name,
+        ["indexFile"] = indexFile,
+        ["recordCount"] = recordCount.ToString(CultureInfo.InvariantCulture)
+      };
+
+      tasks.Add(new SchemaBackfillTask(SchemaVersion.Start, kind, tableName, properties));
+    }
+
+    if (tasks.Count > 0)
+    {
+      await queue.EnqueueAsync(tasks, cancellationToken).ConfigureAwait(false);
+    }
+
+    return await ProcessIndexRewriteQueueAsync(tableName, cancellationToken).ConfigureAwait(false);
+  }
+
+  private async ValueTask<int> ProcessIndexRewriteQueueAsync(string tableName, CancellationToken cancellationToken)
+  {
+    var queue = new SchemaBackfillQueue(GetBackfillPath(tableName));
+    IReadOnlyList<SchemaBackfillTask> tasks = await queue.ReadAsync(cancellationToken).ConfigureAwait(false);
+    if (tasks.Count == 0)
+    {
       return 0;
     }
 
+    int rebuilt = 0;
+    string tablePath = GetTablePath(tableName);
+    DbfTableDescriptor descriptor = _tableLoader.LoadDbf(tablePath);
     string? directory = Path.GetDirectoryName(tablePath);
     if (!string.IsNullOrEmpty(directory))
     {
       Directory.CreateDirectory(directory);
     }
 
-    int rebuilt = 0;
-    foreach (string indexFile in descriptor.Sidecars.IndexFileNames)
+    foreach (SchemaBackfillTask task in tasks)
     {
-      string indexPath = Path.Combine(directory ?? _rootDirectory, indexFile);
-      string tempPath = indexPath + ".rebuild";
-      string manifest = BuildIndexManifest(descriptor, recordCount, indexFile);
-      string? indexDirectory = Path.GetDirectoryName(indexPath);
-      if (!string.IsNullOrEmpty(indexDirectory))
+      if (!IsIndexRewriteOperation(task.Kind) ||
+        !string.Equals(task.TableName, tableName, StringComparison.OrdinalIgnoreCase))
       {
-        Directory.CreateDirectory(indexDirectory);
+        continue;
       }
 
-      await File.WriteAllTextAsync(tempPath, manifest, cancellationToken).ConfigureAwait(false);
-      SwapFiles(tempPath, indexPath);
+      if (!task.Properties.TryGetValue("indexFile", out string? indexFile) || string.IsNullOrWhiteSpace(indexFile))
+      {
+        await queue.RemoveAsync(candidate => AreEquivalent(candidate, task), cancellationToken).ConfigureAwait(false);
+        continue;
+      }
+
+      uint recordCount = descriptor.RecordCount;
+      if (task.Properties.TryGetValue("recordCount", out string? rawCount) &&
+        uint.TryParse(rawCount, NumberStyles.Integer, CultureInfo.InvariantCulture, out uint parsedCount))
+      {
+        recordCount = parsedCount;
+      }
+
+      await RewriteIndexAsync(directory, descriptor, indexFile, recordCount, cancellationToken).ConfigureAwait(false);
+      await queue.RemoveAsync(candidate => AreEquivalent(candidate, task), cancellationToken).ConfigureAwait(false);
       rebuilt++;
     }
 
     return rebuilt;
+  }
+
+  private async ValueTask RewriteIndexAsync(
+    string? directory,
+    DbfTableDescriptor descriptor,
+    string indexFile,
+    uint recordCount,
+    CancellationToken cancellationToken)
+  {
+    string baseDirectory = directory ?? _rootDirectory;
+    string indexPath = Path.Combine(baseDirectory, indexFile);
+    string tempPath = indexPath + ".rebuild";
+    string manifest = BuildIndexManifest(descriptor, recordCount, indexFile);
+    string? indexDirectory = Path.GetDirectoryName(indexPath);
+    if (!string.IsNullOrEmpty(indexDirectory))
+    {
+      Directory.CreateDirectory(indexDirectory);
+    }
+
+    await File.WriteAllTextAsync(tempPath, manifest, cancellationToken).ConfigureAwait(false);
+    SwapFiles(tempPath, indexPath);
+  }
+
+  private static bool IsIndexRewriteOperation(SchemaOperationKind kind)
+  {
+    return kind is SchemaOperationKind.Pack or SchemaOperationKind.Reindex;
+  }
+
+  private static bool AreEquivalent(SchemaBackfillTask left, SchemaBackfillTask right)
+  {
+    if (left.Version != right.Version)
+    {
+      return false;
+    }
+
+    if (left.Kind != right.Kind)
+    {
+      return false;
+    }
+
+    if (!string.Equals(left.TableName, right.TableName, StringComparison.OrdinalIgnoreCase))
+    {
+      return false;
+    }
+
+    return PropertiesEqual(left.Properties, right.Properties);
+  }
+
+  private static bool PropertiesEqual(
+    IReadOnlyDictionary<string, string> left,
+    IReadOnlyDictionary<string, string> right)
+  {
+    if (ReferenceEquals(left, right))
+    {
+      return true;
+    }
+
+    if (left.Count != right.Count)
+    {
+      return false;
+    }
+
+    foreach (KeyValuePair<string, string> pair in left)
+    {
+      if (!right.TryGetValue(pair.Key, out string? value))
+      {
+        return false;
+      }
+
+      if (!string.Equals(pair.Value, value, StringComparison.OrdinalIgnoreCase))
+      {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   private static string BuildIndexManifest(
