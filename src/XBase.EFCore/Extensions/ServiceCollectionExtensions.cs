@@ -28,10 +28,24 @@ public static class ServiceCollectionExtensions
 
     services.Replace(ServiceDescriptor.Singleton<IQuerySqlGeneratorFactory, XBaseQuerySqlGeneratorFactory>());
 
-    services.TryAddSingleton<ICursorFactory, NoOpCursorFactory>();
+    services.TryAddSingleton<ICursorFactory, DbfCursorFactory>();
     services.TryAddSingleton<IJournal, NoOpJournal>();
     services.TryAddSingleton<ISchemaMutator, NoOpSchemaMutator>();
-    services.TryAddSingleton<ITableResolver, NoOpTableResolver>();
+    services.TryAddScoped<ITableResolver>(provider =>
+    {
+      var options = provider.GetService<IDbContextOptions>();
+      var extension = options?.FindExtension<XBaseOptionsExtension>();
+      string? connectionString = extension?.ConnectionString;
+      XBaseConnectionOptions cached = string.IsNullOrWhiteSpace(connectionString)
+        ? XBaseConnectionOptions.Default
+        : XBaseConnectionOptions.Parse(connectionString);
+
+      return new SqlTableResolver(() =>
+      {
+        XBaseConnection? connection = provider.GetService<XBaseConnection>();
+        return connection is not null ? connection.Options : cached;
+      });
+    });
 
     services.TryAddScoped<IRelationalConnection>(provider =>
     {

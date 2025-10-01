@@ -4,7 +4,7 @@ using System.Text;
 
 namespace XBase.Core.Table;
 
-internal static class DbfEncodingRegistry
+public static class DbfEncodingRegistry
 {
   private static readonly IReadOnlyDictionary<byte, int> CodePageByLanguageDriverId =
     new Dictionary<byte, int>

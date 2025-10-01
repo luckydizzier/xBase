@@ -36,13 +36,13 @@ public sealed class DbfTableLoader
     {
       directory = Directory.GetCurrentDirectory();
     }
-    return LoadDbf(stream, tableName, directory);
+    return LoadDbf(stream, tableName, directory, normalizedPath);
   }
 
   public ITableDescriptor Load(Stream stream, string tableName, string? directoryPath = null) =>
     LoadDbf(stream, tableName, directoryPath);
 
-  public DbfTableDescriptor LoadDbf(Stream stream, string tableName, string? directoryPath = null)
+  public DbfTableDescriptor LoadDbf(Stream stream, string tableName, string? directoryPath = null, string? sourcePath = null)
   {
     if (stream is null)
     {
@@ -103,7 +103,8 @@ public sealed class DbfTableLoader
       languageDriverId,
       fields,
       sidecars,
-      SchemaVersion.Start);
+      SchemaVersion.Start,
+      sourcePath);
   }
 
   private static IReadOnlyList<DbfFieldSchema> ParseFieldDescriptors(ReadOnlySpan<byte> buffer, Encoding encoding)

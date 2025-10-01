@@ -17,15 +17,16 @@ public sealed class XBaseConnection : DbConnection
   private readonly ICursorFactory _cursorFactory;
   private readonly IJournal _journal;
   private readonly ISchemaMutator _schemaMutator;
-  private readonly ITableResolver _tableResolver;
+  private readonly ITableResolver? _tableResolver;
+  private readonly SqlTableResolver _defaultTableResolver;
 
   public XBaseConnection()
-    : this(new NoOpCursorFactory(), new NoOpJournal(), new NoOpSchemaMutator(), new NoOpTableResolver())
+    : this(new DbfCursorFactory(), new NoOpJournal(), new NoOpSchemaMutator(), tableResolver: null)
   {
   }
 
   public XBaseConnection(ICursorFactory cursorFactory, IJournal journal, ISchemaMutator schemaMutator)
-    : this(cursorFactory, journal, schemaMutator, new NoOpTableResolver())
+    : this(cursorFactory, journal, schemaMutator, tableResolver: null)
   {
   }
 
@@ -33,12 +34,13 @@ public sealed class XBaseConnection : DbConnection
     ICursorFactory cursorFactory,
     IJournal journal,
     ISchemaMutator schemaMutator,
-    ITableResolver tableResolver)
+    ITableResolver? tableResolver)
   {
     _cursorFactory = cursorFactory ?? throw new ArgumentNullException(nameof(cursorFactory));
     _journal = journal ?? throw new ArgumentNullException(nameof(journal));
     _schemaMutator = schemaMutator ?? throw new ArgumentNullException(nameof(schemaMutator));
-    _tableResolver = tableResolver ?? throw new ArgumentNullException(nameof(tableResolver));
+    _tableResolver = tableResolver;
+    _defaultTableResolver = new SqlTableResolver(() => Options);
   }
 
   public XBaseConnectionOptions Options { get; private set; } = XBaseConnectionOptions.Default;
@@ -111,6 +113,7 @@ public sealed class XBaseConnection : DbConnection
 
   protected override DbCommand CreateDbCommand()
   {
-    return new XBaseCommand(this, _cursorFactory, _schemaMutator, _tableResolver);
+    ITableResolver resolver = _tableResolver ?? _defaultTableResolver;
+    return new XBaseCommand(this, _cursorFactory, _schemaMutator, resolver);
   }
 }
