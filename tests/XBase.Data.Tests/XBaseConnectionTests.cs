@@ -43,11 +43,25 @@ public sealed class XBaseConnectionTests
     Assert.Equal(CancellationToken.None, journal.LastBeginCancellationToken);
   }
 
+  [Fact]
+  public void DisposeWithoutCommit_RollsBackJournal()
+  {
+    var journal = new FakeJournal();
+    using var connection = new XBaseConnection(new NoOpCursorFactory(), journal);
+
+    var transaction = connection.BeginTransaction();
+    transaction.Dispose();
+
+    Assert.Equal(1, journal.RollbackCallCount);
+  }
+
   private sealed class FakeJournal : IJournal
   {
     public int BeginCallCount { get; private set; }
 
     public CancellationToken LastBeginCancellationToken { get; private set; } = CancellationToken.None;
+
+    public int RollbackCallCount { get; private set; }
 
     public ValueTask BeginAsync(CancellationToken cancellationToken = default)
     {
@@ -63,6 +77,7 @@ public sealed class XBaseConnectionTests
 
     public ValueTask RollbackAsync(CancellationToken cancellationToken = default)
     {
+      RollbackCallCount++;
       return ValueTask.CompletedTask;
     }
   }
