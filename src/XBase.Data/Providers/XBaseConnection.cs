@@ -41,11 +41,18 @@ public sealed class XBaseConnection : DbConnection
     _tableResolver = tableResolver ?? throw new ArgumentNullException(nameof(tableResolver));
   }
 
+  public XBaseConnectionOptions Options { get; private set; } = XBaseConnectionOptions.Default;
+
   [AllowNull]
   public override string ConnectionString
   {
     get => _connectionString;
-    set => _connectionString = value ?? string.Empty;
+    set
+    {
+      string newValue = value ?? string.Empty;
+      _connectionString = newValue;
+      Options = XBaseConnectionOptions.Parse(newValue);
+    }
   }
 
   public override string Database => "xBase";
