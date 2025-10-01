@@ -1,5 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:diag="clr-namespace:XBase.Demo.Domain.Diagnostics;assembly=XBase.Demo.Domain"
+             xmlns:vm="clr-namespace:XBase.Demo.App.ViewModels"
              x:Class="XBase.Demo.App.App">
+  <Application.DataTemplates>
+    <DataTemplate x:DataType="vm:TableListItemViewModel">
+      <StackPanel Margin="4" Spacing="2">
+        <TextBlock Text="{Binding Name}" FontWeight="Medium" />
+        <TextBlock Text="{Binding Path}" FontSize="11" Foreground="#FF617C9A" TextTrimming="CharacterEllipsis" />
+      </StackPanel>
+    </DataTemplate>
+    <DataTemplate x:DataType="vm:IndexListItemViewModel">
+      <StackPanel Margin="4" Spacing="2">
+        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding Expression}" FontSize="11" Foreground="#FF617C9A" TextTrimming="CharacterEllipsis" />
+      </StackPanel>
+    </DataTemplate>
+    <DataTemplate x:DataType="diag:DemoTelemetryEvent">
+      <StackPanel Margin="4" Spacing="2">
+        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding Timestamp, StringFormat='{}{0:HH:mm:ss}'}" FontSize="11" />
+        <ItemsControl ItemsSource="{Binding Payload}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <TextBlock FontSize="11" Text="{Binding}" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </DataTemplate>
+  </Application.DataTemplates>
 </Application>
