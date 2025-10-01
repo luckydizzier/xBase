@@ -21,8 +21,9 @@ public static class ServiceCollectionExtensions
       .TryAdd<LoggingDefinitions, XBaseLoggingDefinitions>()
       .TryAdd<ISqlGenerationHelper, RelationalSqlGenerationHelper>()
       .TryAdd<IRelationalTypeMappingSource, XBaseTypeMappingSource>()
-      .TryAdd<IQuerySqlGeneratorFactory, XBaseQuerySqlGeneratorFactory>()
       .TryAdd<IModificationCommandBatchFactory, NoOpModificationCommandBatchFactory>();
+
+    services.Replace(ServiceDescriptor.Singleton<IQuerySqlGeneratorFactory, XBaseQuerySqlGeneratorFactory>());
 
     services.TryAddScoped<IRelationalConnection>(provider =>
     {
