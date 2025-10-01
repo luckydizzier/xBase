@@ -1,6 +1,8 @@
 using System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using XBase.Core.Cursors;
+using XBase.Core.Table;
 using XBase.Demo.Domain.Services;
 using XBase.Demo.Infrastructure.Catalog;
 using XBase.Demo.Infrastructure.Indexes;
@@ -23,8 +25,10 @@ public static class ServiceCollectionExtensions
     ArgumentNullException.ThrowIfNull(services);
 
     services.AddLogging(builder => builder.AddDebug());
+    services.AddSingleton<DbfTableLoader>();
+    services.AddSingleton<DbfCursorFactory>();
     services.AddSingleton<ITableCatalogService, FileSystemTableCatalogService>();
-    services.AddSingleton<ITablePageService, NullTablePageService>();
+    services.AddSingleton<ITablePageService, DbfTablePageService>();
     services.AddSingleton<ISchemaDdlService, TemplateSchemaDdlService>();
     services.AddSingleton<IIndexManagementService, FileSystemIndexManagementService>();
     services.AddSingleton<ICsvImportService, FileSystemCsvImportService>();

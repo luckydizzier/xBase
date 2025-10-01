@@ -4,6 +4,8 @@
     <RootNamespace>XBase.Demo.Infrastructure</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../../XBase.Abstractions/XBase.Abstractions.csproj" />
+    <ProjectReference Include="../../XBase.Core/XBase.Core.csproj" />
     <ProjectReference Include="../XBase.Demo.Domain/XBase.Demo.Domain.csproj" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
