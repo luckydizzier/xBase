@@ -1,8 +1,8 @@
 # Phase A GA Release Checklist
 
 ## Pre-Flight
-- [ ] All milestones M1–M6 marked complete in `tasks.md` and ROADMAP updated.
-- [ ] Verify documentation set: README, requirements, architecture, CODEPAGES, INDEXES, TRANSACTIONS, cookbooks, configuration, release notes.
+- [x] All milestones M1–M6 marked complete in `tasks.md` and ROADMAP updated.
+- [x] Verify documentation set: README, requirements, architecture, CODEPAGES, INDEXES, TRANSACTIONS, cookbooks, configuration, release notes.
 - [ ] Ensure schema + fixture repositories synchronized and tagged.
 
 ## Build & Validation
@@ -19,7 +19,7 @@
 - [ ] Publish symbols to internal symbol server.
 
 ## Release Artifact Prep
-- [ ] Generate release notes highlighting closed issues + breaking changes.
+- [x] Generate release notes highlighting closed issues + breaking changes.
 - [ ] Attach CLI binaries zipped per platform (win-x64, linux-x64, osx-arm64).
 - [ ] Snapshot benchmark results and include in release attachments.
 
