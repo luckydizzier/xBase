@@ -3,6 +3,7 @@ name: xBase CI
 on:
   push:
     branches: [ main, "release/**" ]
+    tags: [ "v*" ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -67,6 +68,8 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: pack
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -90,11 +93,11 @@ jobs:
       - name: Publish CLI (macOS)
         run: dotnet publish src/XBase.Tools/XBase.Tools.csproj -c Release -r osx-arm64 -p:PublishSingleFile=true -p:SelfContained=true -o artifacts/osx-arm64
 
-      - name: Upload Release Artifacts
-        uses: actions/upload-artifact@v4
+      - name: Download NuGet Packages
+        uses: actions/download-artifact@v4
         with:
-          name: cli-binaries
-          path: artifacts
+          name: nuget-packages
+          path: artifacts/nuget
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
