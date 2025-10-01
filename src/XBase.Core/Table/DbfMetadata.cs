@@ -37,7 +37,8 @@ public sealed class DbfTableDescriptor : ITableDescriptor
     ushort recordLength,
     byte languageDriverId,
     IReadOnlyList<DbfFieldSchema> fieldSchemas,
-    DbfSidecarManifest sidecars)
+    DbfSidecarManifest sidecars,
+    SchemaVersion schemaVersion)
   {
     Name = name;
     Version = version;
@@ -53,6 +54,7 @@ public sealed class DbfTableDescriptor : ITableDescriptor
       .Select(CreateIndexDescriptor)
       .Cast<IIndexDescriptor>()
       .ToArray();
+    SchemaVersion = schemaVersion;
   }
 
   public string Name { get; }
@@ -62,6 +64,23 @@ public sealed class DbfTableDescriptor : ITableDescriptor
   public IReadOnlyList<IFieldDescriptor> Fields { get; }
 
   public IReadOnlyList<IIndexDescriptor> Indexes { get; }
+
+  public SchemaVersion SchemaVersion { get; }
+
+  public DbfTableDescriptor WithSchemaVersion(SchemaVersion schemaVersion)
+  {
+    return new DbfTableDescriptor(
+      Name,
+      Version,
+      LastUpdated,
+      RecordCount,
+      HeaderLength,
+      RecordLength,
+      LanguageDriverId,
+      FieldSchemas,
+      Sidecars,
+      schemaVersion);
+  }
 
   public byte Version { get; }
 

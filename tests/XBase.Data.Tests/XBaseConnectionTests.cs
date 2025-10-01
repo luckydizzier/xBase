@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Threading;
 using System.Threading.Tasks;
@@ -23,7 +25,7 @@ public sealed class XBaseConnectionTests
   public void BeginTransaction_StartsJournal()
   {
     var journal = new FakeJournal();
-    using var connection = new XBaseConnection(new NoOpCursorFactory(), journal);
+    using var connection = new XBaseConnection(new NoOpCursorFactory(), journal, new FakeSchemaMutator());
 
     using var transaction = connection.BeginTransaction();
 
@@ -35,7 +37,7 @@ public sealed class XBaseConnectionTests
   public async Task BeginTransactionAsync_StartsJournal()
   {
     var journal = new FakeJournal();
-    using var connection = new XBaseConnection(new NoOpCursorFactory(), journal);
+    using var connection = new XBaseConnection(new NoOpCursorFactory(), journal, new FakeSchemaMutator());
 
     await using var transaction = await connection.BeginTransactionAsync();
 
@@ -47,7 +49,7 @@ public sealed class XBaseConnectionTests
   public void DisposeWithoutCommit_RollsBackJournal()
   {
     var journal = new FakeJournal();
-    using var connection = new XBaseConnection(new NoOpCursorFactory(), journal);
+    using var connection = new XBaseConnection(new NoOpCursorFactory(), journal, new FakeSchemaMutator());
 
     var transaction = connection.BeginTransaction();
     transaction.Dispose();
@@ -79,6 +81,31 @@ public sealed class XBaseConnectionTests
     {
       RollbackCallCount++;
       return ValueTask.CompletedTask;
+    }
+  }
+
+  private sealed class FakeSchemaMutator : ISchemaMutator
+  {
+    public ValueTask<SchemaVersion> ExecuteAsync(
+      SchemaOperation operation,
+      string? author = null,
+      CancellationToken cancellationToken = default)
+    {
+      return ValueTask.FromResult(SchemaVersion.Start);
+    }
+
+    public ValueTask<IReadOnlyList<SchemaLogEntry>> ReadHistoryAsync(
+      string tableName,
+      CancellationToken cancellationToken = default)
+    {
+      return ValueTask.FromResult<IReadOnlyList<SchemaLogEntry>>(Array.Empty<SchemaLogEntry>());
+    }
+
+    public ValueTask<IReadOnlyList<SchemaBackfillTask>> ReadBackfillQueueAsync(
+      string tableName,
+      CancellationToken cancellationToken = default)
+    {
+      return ValueTask.FromResult<IReadOnlyList<SchemaBackfillTask>>(Array.Empty<SchemaBackfillTask>());
     }
   }
 }

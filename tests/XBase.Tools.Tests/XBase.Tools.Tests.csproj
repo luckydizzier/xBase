@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\XBase.Tools\XBase.Tools.csproj" />
+    <ProjectReference Include="..\..\src\XBase.Core\XBase.Core.csproj" />
   </ItemGroup>
 
 </Project>

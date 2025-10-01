@@ -1,7 +1,7 @@
 # xBase for .NET — In-Place Online DDL Strategy (DDL.md)
 
 > **Milestone**: M3 (ADO.NET + Online DDL enablement)
-> **Status**: Draft v0.1
+> **Status**: Updated v0.2
 
 ---
 

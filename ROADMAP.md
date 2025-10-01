@@ -31,7 +31,7 @@
 
 - **M1**: ✅ completed.
 - **M2**: ✅ completed.
-- **M3**: 🚧 in progress (Online DDL/IPOD + provider enablement).
+- **M3**: ✅ completed (Online DDL/IPOD + provider enablement).
 - **M4–M6**: ⏳ pending.
 
 ---

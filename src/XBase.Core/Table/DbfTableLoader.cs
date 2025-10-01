@@ -102,7 +102,8 @@ public sealed class DbfTableLoader
       recordLength,
       languageDriverId,
       fields,
-      sidecars);
+      sidecars,
+      SchemaVersion.Start);
   }
 
   private static IReadOnlyList<DbfFieldSchema> ParseFieldDescriptors(ReadOnlySpan<byte> buffer, Encoding encoding)

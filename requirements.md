@@ -69,9 +69,10 @@
 ### 4.5 ADO.NET Provider
 - **FR‑AD‑1**: Connection string: `xbase://path=<dir>;readonly=<bool>;journal=<on|off>;locking=<file|record|none>;codepage=<auto|cp852|...>;deleted=<hide|show>;cacheSize=<int>`.  
 - **FR‑AD‑2**: SQL‑subset parser for: `SELECT` (projection, where, order, limit/offset).  
-- **FR‑AD‑3**: Parameters with inferred DBF type mapping; named parameters `@p`.  
-- **FR‑AD‑4**: Transactions via `DbTransaction` bound to journal mechanism.  
+- **FR‑AD‑3**: Parameters with inferred DBF type mapping; named parameters `@p`.
+- **FR‑AD‑4**: Transactions via `DbTransaction` bound to journal mechanism.
 - **FR‑AD‑5**: Schema discovery APIs (`GetSchema`, table/column metadata).
+- **FR‑AD‑6**: Recognize `CREATE/DROP TABLE`, `ALTER TABLE`, and `CREATE/DROP INDEX` statements, executing them through the schema mutator and surfacing resulting schema version metadata.
 
 ### 4.6 EF Core Provider
 - **FR‑EF‑1**: `UseXBase(connectionString)`; model conventions for DBF → .NET types.  

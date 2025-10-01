@@ -10,11 +10,11 @@
 - [x] Added `TableCatalog` directory discovery plus expression and diagnostics scaffolding (`ExpressionEvaluator`, `XBaseLogger`) covered by unit tests.
 - [x] Exercised loaders via fixture assertions in `XBase.Core.Tests` and smoke-tested the tooling pipeline through `XBase.Tools.Tests`.
 
-## M3 – Online DDL & Provider Enablement 🚧
-- [ ] Implement schema-delta `.ddl` log with version tracking, lazy backfill queues, and recovery tests.
-- [ ] Extend core mutators and provider APIs to execute `CREATE/ALTER/DROP TABLE` plus index DDL with transactional guards.
-- [ ] Surface DDL verbs through the ADO.NET provider (command parser, execution pipeline, metadata exposure).
-- [ ] Ship CLI `xbase ddl apply/checkpoint/pack` commands with validation, dry-run, and integration tests.
+## M3 – Online DDL & Provider Enablement ✅
+- [x] Implement schema-delta `.ddl` log with version tracking, lazy backfill queues, and recovery tests.
+- [x] Extend core mutators and provider APIs to execute `CREATE/ALTER/DROP TABLE` plus index DDL with transactional guards.
+- [x] Surface DDL verbs through the ADO.NET provider (command parser, execution pipeline, metadata exposure).
+- [x] Ship CLI `xbase ddl apply/checkpoint/pack` commands with validation, dry-run, and integration tests.
 
 ## M4 – Journaling & Transactions ⏳
 - [x] Ensured `XBaseConnection` starts the journal for synchronous and asynchronous transactions with test coverage.

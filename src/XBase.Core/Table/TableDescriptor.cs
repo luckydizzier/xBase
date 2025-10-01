@@ -9,12 +9,14 @@ public sealed class TableDescriptor : ITableDescriptor
     string name,
     string? memoFileName,
     IReadOnlyList<IFieldDescriptor> fields,
-    IReadOnlyList<IIndexDescriptor> indexes)
+    IReadOnlyList<IIndexDescriptor> indexes,
+    SchemaVersion schemaVersion)
   {
     Name = name;
     MemoFileName = memoFileName;
     Fields = fields;
     Indexes = indexes;
+    SchemaVersion = schemaVersion;
   }
 
   public string Name { get; }
@@ -24,4 +26,6 @@ public sealed class TableDescriptor : ITableDescriptor
   public IReadOnlyList<IFieldDescriptor> Fields { get; }
 
   public IReadOnlyList<IIndexDescriptor> Indexes { get; }
+
+  public SchemaVersion SchemaVersion { get; }
 }
