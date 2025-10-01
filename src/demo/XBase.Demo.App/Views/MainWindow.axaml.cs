@@ -43,6 +43,34 @@ public partial class MainWindow : ReactiveWindow<ShellViewModel>
             interaction.SetOutput(selected?.Path.LocalPath);
           })
           .DisposeWith(disposables);
+
+      viewModel.SeedAndRecovery.SelectCsvFileInteraction.RegisterHandler(async interaction =>
+          {
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel?.StorageProvider is not IStorageProvider storageProvider)
+            {
+              interaction.SetOutput(null);
+              return;
+            }
+
+            var options = new FilePickerOpenOptions
+            {
+              AllowMultiple = false,
+              FileTypeFilter = new[]
+              {
+                new FilePickerFileType("CSV files")
+                {
+                  Patterns = new[] { "*.csv" }
+                },
+                FilePickerFileTypes.All
+              }
+            };
+
+            var results = await storageProvider.OpenFilePickerAsync(options);
+            var selected = results?.FirstOrDefault();
+            interaction.SetOutput(selected?.Path.LocalPath);
+          })
+          .DisposeWith(disposables);
     });
   }
 

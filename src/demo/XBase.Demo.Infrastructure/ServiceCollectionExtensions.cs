@@ -4,7 +4,9 @@ using Microsoft.Extensions.Logging;
 using XBase.Demo.Domain.Services;
 using XBase.Demo.Infrastructure.Catalog;
 using XBase.Demo.Infrastructure.Indexes;
+using XBase.Demo.Infrastructure.Recovery;
 using XBase.Demo.Infrastructure.Schema;
+using XBase.Demo.Infrastructure.Seed;
 
 namespace XBase.Demo.Infrastructure;
 
@@ -25,6 +27,8 @@ public static class ServiceCollectionExtensions
     services.AddSingleton<ITablePageService, NullTablePageService>();
     services.AddSingleton<ISchemaDdlService, TemplateSchemaDdlService>();
     services.AddSingleton<IIndexManagementService, FileSystemIndexManagementService>();
+    services.AddSingleton<ICsvImportService, FileSystemCsvImportService>();
+    services.AddSingleton<IRecoveryWorkflowService, FileSystemRecoveryWorkflowService>();
 
     return services;
   }

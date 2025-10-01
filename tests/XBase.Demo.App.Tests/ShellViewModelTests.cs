@@ -38,6 +38,10 @@ public sealed class ShellViewModelTests
       Assert.Equal(25, viewModel.TablePage.PageSize);
       Assert.Equal(0, viewModel.TablePage.PageNumber);
       Assert.Contains("Page 1", viewModel.TablePage.Summary, StringComparison.Ordinal);
+
+      Assert.Equal(catalog.Path, viewModel.SeedAndRecovery.CatalogRoot);
+      Assert.Equal("CUSTOMERS", viewModel.SeedAndRecovery.TargetTableName);
+      Assert.False(viewModel.SeedAndRecovery.HasPendingCrash);
     }
     finally
     {

@@ -20,6 +20,6 @@ Source blueprint: [docs/demo/avalonia-reactiveui-demo-plan.md](../../docs/demo/a
 - [ ] Expand diagnostics feed for journal/index events.
 
 ## Milestone M4 – Seed & Recovery Demo
-- [ ] Implement CSV import pipeline with encoding detection.
-- [ ] Simulate crash scenarios and recovery replay workflow.
-- [ ] Publish diagnostic/export reports for support packages.
+- [x] Implement CSV import pipeline with encoding detection.
+- [x] Simulate crash scenarios and recovery replay workflow.
+- [x] Publish diagnostic/export reports for support packages.

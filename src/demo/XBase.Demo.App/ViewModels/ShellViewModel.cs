@@ -33,6 +33,7 @@ public class ShellViewModel : ReactiveObject, IDisposable
       IDemoTelemetrySink telemetrySink,
       SchemaDesignerViewModel schemaDesigner,
       IndexManagerViewModel indexManager,
+      SeedAndRecoveryViewModel seedAndRecovery,
       ILogger<ShellViewModel> logger)
   {
     _catalogService = catalogService;
@@ -45,6 +46,7 @@ public class ShellViewModel : ReactiveObject, IDisposable
     TablePage = new TablePageViewModel();
     SchemaDesigner = schemaDesigner;
     IndexManager = indexManager;
+    SeedAndRecovery = seedAndRecovery;
 
     _telemetrySubscription = _telemetrySink.Events
         .ObserveOn(RxApp.MainThreadScheduler)
@@ -86,6 +88,7 @@ public class ShellViewModel : ReactiveObject, IDisposable
         {
           SchemaDesigner.SetTargetTable(table);
           IndexManager.SetTargetTable(table);
+          SeedAndRecovery.SetTargetTable(table);
         });
   }
 
@@ -133,6 +136,8 @@ public class ShellViewModel : ReactiveObject, IDisposable
   public SchemaDesignerViewModel SchemaDesigner { get; }
 
   public IndexManagerViewModel IndexManager { get; }
+
+  public SeedAndRecoveryViewModel SeedAndRecovery { get; }
 
   public ReadOnlyObservableCollection<DemoTelemetryEvent> TelemetryEvents { get; }
 
@@ -185,6 +190,8 @@ public class ShellViewModel : ReactiveObject, IDisposable
     SelectedTable = null;
     SchemaDesigner.SetTargetTable(null);
     IndexManager.SetTargetTable(null);
+    SeedAndRecovery.SetTargetTable(null);
+    SeedAndRecovery.SetCatalogContext(null, Array.Empty<TableListItemViewModel>());
   }
 
   private void OnCatalogLoaded(CatalogModel catalog)
@@ -196,6 +203,8 @@ public class ShellViewModel : ReactiveObject, IDisposable
     {
       _tables.Add(new TableListItemViewModel(table));
     }
+
+    SeedAndRecovery.SetCatalogContext(catalog.RootPath, _tables);
 
     CatalogStatus = _tables.Count > 0
         ? $"{_tables.Count} tables discovered. Select a table to preview rows."
