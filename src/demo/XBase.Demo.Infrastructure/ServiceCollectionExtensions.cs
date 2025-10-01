@@ -3,6 +3,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using XBase.Demo.Domain.Services;
 using XBase.Demo.Infrastructure.Catalog;
+using XBase.Demo.Infrastructure.Indexes;
+using XBase.Demo.Infrastructure.Schema;
 
 namespace XBase.Demo.Infrastructure;
 
@@ -21,6 +23,8 @@ public static class ServiceCollectionExtensions
     services.AddLogging(builder => builder.AddDebug());
     services.AddSingleton<ITableCatalogService, FileSystemTableCatalogService>();
     services.AddSingleton<ITablePageService, NullTablePageService>();
+    services.AddSingleton<ISchemaDdlService, TemplateSchemaDdlService>();
+    services.AddSingleton<IIndexManagementService, FileSystemIndexManagementService>();
 
     return services;
   }

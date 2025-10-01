@@ -10,9 +10,9 @@ Source blueprint: [docs/demo/avalonia-reactiveui-demo-plan.md](../../docs/demo/a
 - [x] Add integration smoke harness once basic navigation is ready.
 
 ## Milestone M2 – DDL & Index Basics
-- [ ] Generate DDL preview scripts for create/alter/drop operations.
-- [ ] Implement index create/drop services with error surfacing.
-- [ ] Extend ViewModels with command handlers for schema updates.
+- [x] Generate DDL preview scripts for create/alter/drop operations.
+- [x] Implement index create/drop services with error surfacing.
+- [x] Extend ViewModels with command handlers for schema updates.
 
 ## Milestone M3 – Rebuild & Diagnostics
 - [ ] Add side-by-side index rebuild orchestration with progress observables.
