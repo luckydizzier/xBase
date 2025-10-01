@@ -87,4 +87,17 @@ public sealed class DbfTableLoaderTests
     Assert.Equal(Path.GetFileName(memoPath), descriptor.MemoFileName);
     Assert.Empty(descriptor.Sidecars.IndexFileNames);
   }
+
+  [Fact]
+  public void Load_WithCodePage852FieldNames_ResolvesEncoding()
+  {
+    DbfFixtureDescriptor fixture = DbfFixtureLibrary.Get("dBASE_III_CP852");
+    string path = fixture.EnsureMaterialized();
+    var loader = new DbfTableLoader();
+
+    DbfTableDescriptor descriptor = loader.LoadDbf(path);
+
+    Assert.Equal("Číslo", descriptor.FieldSchemas.Single().Name);
+    Assert.Equal("Číslo", descriptor.Fields.Single().Name);
+  }
 }
