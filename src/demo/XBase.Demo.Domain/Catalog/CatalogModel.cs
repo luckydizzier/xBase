@@ -1,0 +1,26 @@
+using System.Collections.Generic;
+
+namespace XBase.Demo.Domain.Catalog;
+
+/// <summary>
+/// Represents a catalog of xBase tables discovered under a root directory.
+/// </summary>
+/// <param name="RootPath">The file system root the catalog was scanned from.</param>
+/// <param name="Tables">The set of tables available for browsing.</param>
+public sealed record CatalogModel(string RootPath, IReadOnlyList<TableModel> Tables);
+
+/// <summary>
+/// Represents a single table, including metadata necessary for browsing.
+/// </summary>
+/// <param name="Name">Logical table name.</param>
+/// <param name="Path">Absolute path to the DBF file.</param>
+/// <param name="Indexes">Associated indexes discovered for the table.</param>
+public sealed record TableModel(string Name, string Path, IReadOnlyList<IndexModel> Indexes);
+
+/// <summary>
+/// Represents an index that can be applied while browsing.
+/// </summary>
+/// <param name="Name">Index identifier.</param>
+/// <param name="Expression">The expression used to compute the index key.</param>
+/// <param name="Order">Optional ordering hint for display.</param>
+public sealed record IndexModel(string Name, string Expression, int Order = 0);
