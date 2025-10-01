@@ -2,6 +2,8 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
+using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using XBase.Demo.Domain.Diagnostics;
 
 namespace XBase.Demo.Diagnostics;
@@ -13,6 +15,7 @@ public sealed class InMemoryTelemetrySink : IDemoTelemetrySink
 {
   private readonly ConcurrentQueue<DemoTelemetryEvent> _events = new();
   private readonly ILogger<InMemoryTelemetrySink> _logger;
+  private readonly Subject<DemoTelemetryEvent> _eventStream = new();
 
   public InMemoryTelemetrySink(ILogger<InMemoryTelemetrySink> logger)
   {
@@ -29,6 +32,7 @@ public sealed class InMemoryTelemetrySink : IDemoTelemetrySink
     }
 
     _logger.LogInformation("Telemetry event {Name} captured", telemetryEvent.Name);
+    _eventStream.OnNext(telemetryEvent);
   }
 
   /// <summary>
@@ -36,4 +40,6 @@ public sealed class InMemoryTelemetrySink : IDemoTelemetrySink
   /// </summary>
   public IReadOnlyCollection<DemoTelemetryEvent> GetSnapshot()
       => _events.ToArray();
+
+  public IObservable<DemoTelemetryEvent> Events => _eventStream.AsObservable();
 }

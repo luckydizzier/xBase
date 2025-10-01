@@ -4,22 +4,23 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
+using System.Reactive.Threading.Tasks;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using ReactiveUI;
-using System.Reactive.Threading.Tasks;
 using XBase.Demo.Domain.Catalog;
 using XBase.Demo.Domain.Diagnostics;
 using XBase.Demo.Domain.Services;
 
 namespace XBase.Demo.App.ViewModels;
 
-public class ShellViewModel : ReactiveObject
+public class ShellViewModel : ReactiveObject, IDisposable
 {
   private readonly ITableCatalogService _catalogService;
   private readonly ITablePageService _pageService;
   private readonly IDemoTelemetrySink _telemetrySink;
   private readonly ILogger<ShellViewModel> _logger;
+  private readonly IDisposable _telemetrySubscription;
 
   private string? _catalogRoot;
   private bool _isBusy;
@@ -44,6 +45,15 @@ public class ShellViewModel : ReactiveObject
     TablePage = new TablePageViewModel();
     SchemaDesigner = schemaDesigner;
     IndexManager = indexManager;
+
+    _telemetrySubscription = _telemetrySink.Events
+        .ObserveOn(RxApp.MainThreadScheduler)
+        .Subscribe(OnTelemetryPublished);
+
+    foreach (var telemetryEvent in _telemetrySink.GetSnapshot().OrderBy(evt => evt.Timestamp))
+    {
+      OnTelemetryPublished(telemetryEvent);
+    }
 
     var isIdle = this.WhenAnyValue(x => x.IsBusy).Select(isBusy => !isBusy);
 
@@ -169,7 +179,7 @@ public class ShellViewModel : ReactiveObject
     {
       ["message"] = exception.Message
     };
-    RecordTelemetry(new DemoTelemetryEvent("CatalogLoadFailed", DateTimeOffset.UtcNow, payload));
+    PublishTelemetry(new DemoTelemetryEvent("CatalogLoadFailed", DateTimeOffset.UtcNow, payload));
     CatalogStatus = "Catalog load failed. Review diagnostics for details.";
     _tables.Clear();
     SelectedTable = null;
@@ -202,7 +212,7 @@ public class ShellViewModel : ReactiveObject
       ["root"] = catalog.RootPath,
       ["tableCount"] = catalog.Tables.Count
     };
-    RecordTelemetry(new DemoTelemetryEvent("CatalogLoaded", DateTimeOffset.UtcNow, payload));
+    PublishTelemetry(new DemoTelemetryEvent("CatalogLoaded", DateTimeOffset.UtcNow, payload));
 
     SelectedTable = _tables.FirstOrDefault();
   }
@@ -223,7 +233,7 @@ public class ShellViewModel : ReactiveObject
       ["indexes"] = table.Indexes.Count,
       ["rows"] = page.Rows.Count
     };
-    RecordTelemetry(new DemoTelemetryEvent("TablePreviewLoaded", DateTimeOffset.UtcNow, payload));
+    PublishTelemetry(new DemoTelemetryEvent("TablePreviewLoaded", DateTimeOffset.UtcNow, payload));
   }
 
   private void OnLoadTableFault(Exception exception)
@@ -233,18 +243,24 @@ public class ShellViewModel : ReactiveObject
     {
       ["message"] = exception.Message
     };
-    RecordTelemetry(new DemoTelemetryEvent("TablePreviewFailed", DateTimeOffset.UtcNow, payload));
+    PublishTelemetry(new DemoTelemetryEvent("TablePreviewFailed", DateTimeOffset.UtcNow, payload));
     CatalogStatus = "Table preview failed. Check diagnostics for more information.";
   }
 
-  private void RecordTelemetry(DemoTelemetryEvent telemetryEvent)
-  {
-    _telemetrySink.Publish(telemetryEvent);
+  private void PublishTelemetry(DemoTelemetryEvent telemetryEvent)
+    => _telemetrySink.Publish(telemetryEvent);
 
+  private void OnTelemetryPublished(DemoTelemetryEvent telemetryEvent)
+  {
     _telemetryEvents.Insert(0, telemetryEvent);
     while (_telemetryEvents.Count > 64)
     {
       _telemetryEvents.RemoveAt(_telemetryEvents.Count - 1);
     }
+  }
+
+  public void Dispose()
+  {
+    _telemetrySubscription.Dispose();
   }
 }

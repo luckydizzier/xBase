@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace XBase.Demo.Domain.Catalog;
@@ -23,4 +24,20 @@ public sealed record TableModel(string Name, string Path, IReadOnlyList<IndexMod
 /// <param name="Name">Index identifier.</param>
 /// <param name="Expression">The expression used to compute the index key.</param>
 /// <param name="Order">Optional ordering hint for display.</param>
-public sealed record IndexModel(string Name, string Expression, int Order = 0);
+public sealed record IndexModel(string Name, string Expression, int Order = 0)
+{
+  /// <summary>
+  /// Gets the absolute path to the index artifact when known.
+  /// </summary>
+  public string? FullPath { get; init; }
+
+  /// <summary>
+  /// Gets the recorded size of the index artifact in bytes, if available.
+  /// </summary>
+  public long? SizeBytes { get; init; }
+
+  /// <summary>
+  /// Gets the last modified timestamp of the index artifact expressed in UTC.
+  /// </summary>
+  public DateTimeOffset? LastModifiedUtc { get; init; }
+}
