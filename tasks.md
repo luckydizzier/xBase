@@ -16,7 +16,7 @@
 - [x] Surface DDL verbs through the ADO.NET provider (command parser, execution pipeline, metadata exposure).
 - [x] Ship CLI `xbase ddl apply/checkpoint/pack` commands with validation, dry-run, and integration tests.
 
-## M4 – Journaling & Transactions ⏳
+## M4 – Journaling & Transactions ✅
 - [x] Ensured `XBaseConnection` starts the journal for synchronous and asynchronous transactions with test coverage.
 - [x] Design and implement the WAL journal format covering FR-WT-1 – FR-WT-4 requirements with crash-recovery tests.
 - [x] Introduce lock coordination (file + optional record locks) and acceptance tests simulating concurrent access.
@@ -27,7 +27,7 @@
 - [x] Implement EF Core provider services (type mappings, query translation, change tracking) backed by integration tests.
 - [x] Deliver connection string/journaling options surface plus configuration docs.
 
-## M6 – Tooling, Docs & Release ⏳
+## M6 – Tooling, Docs & Release ✅
 - [x] Expand CLI with `dbfdump`, `dbfpack`, `dbfreindex`, `dbfconvert`, including smoke tests.
 - [x] Author remaining documentation set (ROADMAP.md, CODEPAGES.md, INDEXES.md, TRANSACTIONS.md, provider cookbooks).
 - [x] Establish CI pipeline, packaging strategy, and release checklist for Phase A GA.
