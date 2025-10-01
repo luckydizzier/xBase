@@ -1,5 +1,4 @@
 using System;
-using System.Buffers;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
@@ -7,31 +6,29 @@ using System.Threading;
 using System.Threading.Tasks;
 using XBase.Abstractions;
 using XBase.Core.Cursors;
-using XBase.Core.Table;
 
 namespace XBase.Data.Providers;
 
 public sealed class XBaseCommand : DbCommand
 {
-  private static readonly ITableDescriptor EmptyTable = new TableDescriptor(
-    "_command",
-    null,
-    Array.Empty<IFieldDescriptor>(),
-    Array.Empty<IIndexDescriptor>(),
-    SchemaVersion.Start);
-
   private readonly XBaseConnection _connection;
   private readonly ICursorFactory _cursorFactory;
   private string _commandText = string.Empty;
   private readonly XBaseParameterCollection _parameters = new();
   private readonly ISchemaMutator _schemaMutator;
+  private readonly ITableResolver _tableResolver;
   private SchemaVersion? _lastSchemaVersion;
 
-  public XBaseCommand(XBaseConnection connection, ICursorFactory cursorFactory, ISchemaMutator schemaMutator)
+  public XBaseCommand(
+    XBaseConnection connection,
+    ICursorFactory cursorFactory,
+    ISchemaMutator schemaMutator,
+    ITableResolver tableResolver)
   {
-    _connection = connection;
-    _cursorFactory = cursorFactory;
-    _schemaMutator = schemaMutator;
+    _connection = connection ?? throw new ArgumentNullException(nameof(connection));
+    _cursorFactory = cursorFactory ?? throw new ArgumentNullException(nameof(cursorFactory));
+    _schemaMutator = schemaMutator ?? throw new ArgumentNullException(nameof(schemaMutator));
+    _tableResolver = tableResolver ?? throw new ArgumentNullException(nameof(tableResolver));
   }
 
   public SchemaVersion? LastSchemaVersion => _lastSchemaVersion;
@@ -69,7 +66,7 @@ public sealed class XBaseCommand : DbCommand
 
   public override int ExecuteNonQuery()
   {
-    if (TryExecuteSchemaOperation(null).GetAwaiter().GetResult())
+    if (TryExecuteSchemaOperation(CancellationToken.None).GetAwaiter().GetResult())
     {
       return 0;
     }
@@ -79,7 +76,7 @@ public sealed class XBaseCommand : DbCommand
 
   public override object? ExecuteScalar()
   {
-    if (TryExecuteSchemaOperation(null).GetAwaiter().GetResult())
+    if (TryExecuteSchemaOperation(CancellationToken.None).GetAwaiter().GetResult())
     {
       return _lastSchemaVersion;
     }
@@ -98,19 +95,7 @@ public sealed class XBaseCommand : DbCommand
 
   protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
   {
-    var cursor = _cursorFactory
-      .CreateSequentialAsync(EmptyTable, new CursorOptions(false, null, null))
-      .GetAwaiter()
-      .GetResult();
-
-    try
-    {
-      return new XBaseDataReader(Array.Empty<ReadOnlySequence<byte>>());
-    }
-    finally
-    {
-      cursor.DisposeAsync().GetAwaiter().GetResult();
-    }
+    return ExecuteReaderCoreAsync(behavior, CancellationToken.None).GetAwaiter().GetResult();
   }
 
   public override async Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken)
@@ -126,9 +111,7 @@ public sealed class XBaseCommand : DbCommand
 
   protected override Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior, CancellationToken cancellationToken)
   {
-    cancellationToken.ThrowIfCancellationRequested();
-    DbDataReader reader = new XBaseDataReader(Array.Empty<ReadOnlySequence<byte>>());
-    return Task.FromResult(reader);
+    return ExecuteReaderCoreAsync(behavior, cancellationToken).AsTask();
   }
 
   private async Task<object?> ExecuteSchemaAsync(CancellationToken cancellationToken, bool returnScalar)
@@ -143,7 +126,45 @@ public sealed class XBaseCommand : DbCommand
     return returnScalar ? (object?)_lastSchemaVersion : 0;
   }
 
-  private async Task<bool> TryExecuteSchemaOperation(CancellationToken? cancellationToken)
+  private async ValueTask<DbDataReader> ExecuteReaderCoreAsync(CommandBehavior behavior, CancellationToken cancellationToken)
+  {
+    cancellationToken.ThrowIfCancellationRequested();
+
+    if (await TryExecuteSchemaOperation(cancellationToken).ConfigureAwait(false))
+    {
+      return XBaseDataReader.CreateEmpty();
+    }
+
+    if (string.IsNullOrWhiteSpace(CommandText))
+    {
+      return XBaseDataReader.CreateEmpty();
+    }
+
+    TableResolveResult? resolution = await _tableResolver
+      .ResolveAsync(CommandText, cancellationToken)
+      .ConfigureAwait(false);
+    if (resolution is not TableResolveResult resolved)
+    {
+      return XBaseDataReader.CreateEmpty();
+    }
+
+    ICursor cursor = await _cursorFactory
+      .CreateSequentialAsync(resolved.Table, resolved.Options, cancellationToken)
+      .ConfigureAwait(false);
+
+    bool closeConnection = (behavior & CommandBehavior.CloseConnection) == CommandBehavior.CloseConnection;
+    try
+    {
+      return new XBaseDataReader(cursor, resolved.Columns, closeConnection ? _connection : null);
+    }
+    catch
+    {
+      await cursor.DisposeAsync().ConfigureAwait(false);
+      throw;
+    }
+  }
+
+  private async Task<bool> TryExecuteSchemaOperation(CancellationToken cancellationToken)
   {
     if (string.IsNullOrWhiteSpace(CommandText))
     {
@@ -155,9 +176,8 @@ public sealed class XBaseCommand : DbCommand
       return false;
     }
 
-    CancellationToken token = cancellationToken ?? CancellationToken.None;
     _lastSchemaVersion = await _schemaMutator
-      .ExecuteAsync(operation, Author, token)
+      .ExecuteAsync(operation, Author, cancellationToken)
       .ConfigureAwait(false);
     return true;
   }
