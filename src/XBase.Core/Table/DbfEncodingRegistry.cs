@@ -9,6 +9,7 @@ internal static class DbfEncodingRegistry
   private static readonly IReadOnlyDictionary<byte, int> CodePageByLanguageDriverId =
     new Dictionary<byte, int>
     {
+      { 0x00, 437 },  // Undefined (defaults to US MS-DOS)
       { 0x01, 437 },   // US MS-DOS
       { 0x02, 850 },   // International MS-DOS
       { 0x03, 1252 },  // Windows ANSI
@@ -40,11 +41,18 @@ internal static class DbfEncodingRegistry
       { 0xCD, 1252 },  // Windows ANSI (FoxPro)
     };
 
-  private static readonly Encoding DefaultEncoding = Encoding.ASCII;
+  private static readonly Encoding DefaultEncoding;
 
   static DbfEncodingRegistry()
   {
     Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
+    if (!CodePageByLanguageDriverId.TryGetValue(0x00, out int fallbackCodePage))
+    {
+      fallbackCodePage = 437;
+    }
+
+    DefaultEncoding = Encoding.GetEncoding(fallbackCodePage);
   }
 
   public static Encoding Resolve(byte languageDriverId)
