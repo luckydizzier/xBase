@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\XBase.Abstractions\XBase.Abstractions.csproj" />
+    <ProjectReference Include="..\XBase.Core\XBase.Core.csproj" />
+    <ProjectReference Include="..\XBase.Data\XBase.Data.csproj" />
+    <ProjectReference Include="..\XBase.Expressions\XBase.Expressions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.8" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>
