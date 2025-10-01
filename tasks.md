@@ -29,6 +29,6 @@
 
 ## M6 – Tooling, Docs & Release ⏳
 - [x] Expand CLI with `dbfdump`, `dbfpack`, `dbfreindex`, `dbfconvert`, including smoke tests.
-- [ ] Author remaining documentation set (ROADMAP.md, CODEPAGES.md, INDEXES.md, TRANSACTIONS.md, provider cookbooks).
-- [ ] Establish CI pipeline, packaging strategy, and release checklist for Phase A GA.
+- [x] Author remaining documentation set (ROADMAP.md, CODEPAGES.md, INDEXES.md, TRANSACTIONS.md, provider cookbooks).
+- [x] Establish CI pipeline, packaging strategy, and release checklist for Phase A GA.
 - [x] Hardened `dbfconvert` output resolution so directory targets emit `<table>.dbf`, restoring green release tests.

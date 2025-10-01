@@ -1,0 +1,109 @@
+name: xBase CI
+
+on:
+  push:
+    branches: [ main, "release/**" ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore xBase.sln
+
+      - name: Build
+        run: dotnet build xBase.sln -c Release --no-restore
+
+      - name: Test
+        run: dotnet test xBase.sln -c Release --no-build --logger "trx" --results-directory build/TestResults
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}
+          path: build/TestResults
+
+  pack:
+    needs: build-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore xBase.sln
+
+      - name: Pack
+        run: dotnet pack xBase.sln -c Release -o artifacts/nuget /p:ContinuousIntegrationBuild=true
+
+      - name: Publish Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages
+          path: artifacts/nuget
+
+  publish-release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: pack
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore xBase.sln
+
+      - name: Publish CLI (Linux)
+        run: dotnet publish src/XBase.Tools/XBase.Tools.csproj -c Release -r linux-x64 -p:PublishSingleFile=true -p:SelfContained=true -o artifacts/linux-x64
+
+      - name: Publish CLI (Windows)
+        run: dotnet publish src/XBase.Tools/XBase.Tools.csproj -c Release -r win-x64 -p:PublishSingleFile=true -p:SelfContained=true -o artifacts/win-x64
+
+      - name: Publish CLI (macOS)
+        run: dotnet publish src/XBase.Tools/XBase.Tools.csproj -c Release -r osx-arm64 -p:PublishSingleFile=true -p:SelfContained=true -o artifacts/osx-arm64
+
+      - name: Upload Release Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-binaries
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/linux-x64/*
+            artifacts/win-x64/*
+            artifacts/osx-arm64/*
+            artifacts/nuget/*.nupkg
+            artifacts/nuget/*.snupkg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
