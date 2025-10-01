@@ -25,13 +25,14 @@ public sealed class DbfTableLoaderTests
     string path = fixture.EnsureMaterialized();
     var loader = new DbfTableLoader();
 
-    DbfTableDescriptor descriptor = loader.Load(path);
+    DbfTableDescriptor descriptor = loader.LoadDbf(path);
 
     Assert.Equal(fixture.Version, descriptor.Version);
     Assert.Equal(fixture.LanguageDriverId, descriptor.LanguageDriverId);
     Assert.Equal(fixture.HeaderLength, descriptor.HeaderLength);
     Assert.Equal(fixture.RecordLength, descriptor.RecordLength);
     Assert.Equal(fixture.RecordCount, descriptor.RecordCount);
+    Assert.Equal(fixture.LastUpdated, descriptor.LastUpdated);
     Assert.Equal(fixture.FieldCount, descriptor.Fields.Count);
   }
 
@@ -54,7 +55,7 @@ public sealed class DbfTableLoaderTests
 
     var loader = new DbfTableLoader();
 
-    DbfTableDescriptor descriptor = loader.Load(tablePath);
+    DbfTableDescriptor descriptor = loader.LoadDbf(tablePath);
 
     Assert.Equal(Path.GetFileName(memoPath), descriptor.MemoFileName);
     Assert.Contains(Path.GetFileName(ntxPath), descriptor.Sidecars.IndexFileNames);
@@ -79,7 +80,7 @@ public sealed class DbfTableLoaderTests
     var loader = new DbfTableLoader();
 
     using FileStream stream = File.OpenRead(tablePath);
-    DbfTableDescriptor descriptor = loader.Load(stream, tableName, workspace.DirectoryPath);
+    DbfTableDescriptor descriptor = loader.LoadDbf(stream, tableName, workspace.DirectoryPath);
 
     Assert.Equal(fixture.Version, descriptor.Version);
     Assert.Equal(fixture.RecordCount, descriptor.RecordCount);

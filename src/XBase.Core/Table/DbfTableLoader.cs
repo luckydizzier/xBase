@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using XBase.Abstractions;
 
 namespace XBase.Core.Table;
 
@@ -12,7 +13,9 @@ public sealed class DbfTableLoader
   private static readonly string[] MemoExtensions = [".dbt", ".fpt"];
   private static readonly string[] IndexExtensions = [".ndx", ".ntx", ".mdx"];
 
-  public DbfTableDescriptor Load(string filePath)
+  public ITableDescriptor Load(string filePath) => LoadDbf(filePath);
+
+  public DbfTableDescriptor LoadDbf(string filePath)
   {
     if (filePath is null)
     {
@@ -27,10 +30,13 @@ public sealed class DbfTableLoader
     using FileStream stream = new(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
     string tableName = Path.GetFileNameWithoutExtension(filePath) ?? Path.GetFileName(filePath);
     string? directory = Path.GetDirectoryName(filePath);
-    return Load(stream, tableName, directory);
+    return LoadDbf(stream, tableName, directory);
   }
 
-  public DbfTableDescriptor Load(Stream stream, string tableName, string? directoryPath = null)
+  public ITableDescriptor Load(Stream stream, string tableName, string? directoryPath = null) =>
+    LoadDbf(stream, tableName, directoryPath);
+
+  public DbfTableDescriptor LoadDbf(Stream stream, string tableName, string? directoryPath = null)
   {
     if (stream is null)
     {

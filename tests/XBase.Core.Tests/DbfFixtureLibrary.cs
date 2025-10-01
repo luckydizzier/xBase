@@ -19,6 +19,7 @@ internal static class DbfFixtureLibrary
         RecordLength: 25,
         RecordCount: 12,
         FieldCount: 2,
+        LastUpdated: new DateOnly(2024, 3, 15),
         Base64Payload:
           "A3wDDwwAAABhABkAAAAAAAAAAAAAAAAAAAAAAAADAABJRAAAAAAAAAAAAE4AAAAABAAAAAAAAAAAAAAAAAAAAE5B" +
           "TUUAAAAAAAAAQwAAAAAUAAIAAAAAAAAAAAAAAAAADQ=="),
@@ -31,6 +32,7 @@ internal static class DbfFixtureLibrary
         RecordLength: 17,
         RecordCount: 3,
         FieldCount: 2,
+        LastUpdated: new DateOnly(2023, 7, 5),
         Base64Payload:
           "g3sHBQMAAABhABEAAAAAAAAAAAAAAAAAAAAAAABXAABET0NJRAAAAAAAAE4AAAAABgAAAAAAAAAAAAAAAAAAAE5P" +
           "VEUAAAAAAAAATQAAAAAKAAAAAAAAAAAAAAAAAAAADQ=="),
@@ -43,6 +45,7 @@ internal static class DbfFixtureLibrary
         RecordLength: 22,
         RecordCount: 7,
         FieldCount: 3,
+        LastUpdated: new DateOnly(2022, 11, 30),
         Base64Payload:
           "MHoLHgcAAACBABYAAAAAAAAAAAAAAAAAAAAAAADJAABDT0RFAAAAAAAAAEMAAAAADAAAAAAAAAAAAAAAAAAAAEFD" +
           "VElWRQAAAAAATAAAAAABAAAAAAAAAAAAAAAAAAAAQU1PVU5UAAAAAABOAAAAAAgCAAAAAAAAAAAAAAAAAAAN")
@@ -71,6 +74,7 @@ public sealed record DbfFixtureDescriptor(
   ushort RecordLength,
   uint RecordCount,
   int FieldCount,
+  DateOnly LastUpdated,
   string Base64Payload)
 {
   public string EnsureMaterialized()
