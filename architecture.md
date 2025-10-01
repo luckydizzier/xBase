@@ -159,7 +159,29 @@ File System & OS (memory-mapped I/O, file locks)
 
 ---
 
-## 10. Performance Architecture
+## 10. Online DDL & Schema Evolution (M3)
+
+- **In-Place Online DDL (IPOD)** maintains table availability for readers and the single-writer pipeline while schema mutations
+  append to a **schema-delta `.ddl` log** orchestrated by `XBase.Core`.
+- **Versioned projections** let cursors materialize records against the target schema version, with adapters to reshape legacy
+  rows until they are backfilled.
+- **Lazy backfill** occurs opportunistically during writes and via background workers, respecting throttles and journaling
+  checkpoints.
+- **Atomic checkpoints** consolidate applied deltas into refreshed DBF headers and regenerate catalog metadata while holding only
+  a short exclusive DDL lock.
+- **Short exclusive DDL locks** protect header rewrites and index swap windows; standard reads/writes use shared locks plus
+  version gates.
+- **Side-by-side index swaps** rebuild NTX/MDX artifacts under temp names and atomically rename once validated.
+- **Provider integration**: ADO.NET exposes `CREATE/DROP INDEX` and `ALTER TABLE` verbs; EF Core migrations target the same API
+  and track schema version numbers to coordinate with the `.ddl` log.
+- **Tooling**: `xbase ddl apply`, `xbase ddl checkpoint`, and `xbase ddl pack` orchestrate delta ingestion, compaction, and
+  optional vacuum aligned with schema state.
+- **Recovery order**: Data journal replay runs first, followed by `.ddl` log replay to restore schema projections and resume
+  pending backfill tasks.
+
+---
+
+## 11. Performance Architecture
 
 - **I/O**: Memory-mapped reads where safe; buffered writes with durable fsync boundaries.
 - **Caches**: Record page cache and index node cache (LRU); configurable sizes.
@@ -168,7 +190,7 @@ File System & OS (memory-mapped I/O, file locks)
 
 ---
 
-## 11. Error Handling & Diagnostics
+## 12. Error Handling & Diagnostics
 
 - Typed exceptions: `XBaseFileFormatException`, `XBaseCodepageException`, `XBaseLockException`, `XBaseTransactionException`.
 - Messages include file, table, recno, tag, and remediation hints.
@@ -176,41 +198,41 @@ File System & OS (memory-mapped I/O, file locks)
 
 ---
 
-## 12. Security Considerations
+## 13. Security Considerations
 - Bounds-checked parsing; limit record and memo sizes; guard against path traversal in index/memo resolution.
 - No dynamic codegen from untrusted expressions; expression subset is compiled with a safe interpreter/JIT.
 
 ---
 
-## 13. Testing & CI
+## 14. Testing & CI
 - Fixture-based tests on real DBF/DBT/NTX/MDX.
 - Property-based invariants: read→write→read equivalence; reindex equivalence; crash simulations for journal recovery.
 - CI matrix: Windows/Linux/macOS, x64/ARM64.
 
 ---
 
-## 14. Extensibility
+## 15. Extensibility
 - SPI in `XBase.Abstractions` for new formats (CDX/FPT, future VFP).
 - Pluggable collations and codepage providers.
 - Expression function registry and custom translators.
 
 ---
 
-## 15. Deployment & Packaging
+## 16. Deployment & Packaging
 - NuGet packages per module (`XBase.Core`, `XBase.Data`, `XBase.EFCore`, `XBase.Tools`).
 - Signed packages, SemVer, source link, symbols.
 - Minimal runtime dependencies; enable trimming where possible.
 
 ---
 
-## 16. Open Questions (to be tracked)
+## 17. Open Questions (to be tracked)
 - Precise null semantics per variant (documented matrix).
 - Record-level locks cross-platform consistency (advisory vs mandatory).
 - Large file limits and safe behavior above 2–4 GB boundaries for legacy tools.
 
 ---
 
-## 17. Appendix: Example Plans
+## 18. Appendix: Example Plans
 
 **Example**: `SELECT Name FROM Products WHERE Name LIKE 'P%' ORDER BY Name LIMIT 100`
 - **Plan**: Use `Name` ascending index (if exists) → prefix `LIKE` pushdown → scan until `'Q'` boundary → return first 100.
