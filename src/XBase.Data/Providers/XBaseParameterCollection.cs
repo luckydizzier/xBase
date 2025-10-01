@@ -90,7 +90,7 @@ public sealed class XBaseParameterCollection : DbParameterCollection
   {
     if (value is not DbParameter parameter)
     {
-      throw new System.ArgumentException("Expected DbParameter", nameof(value));
+      throw new ArgumentException("Expected DbParameter", nameof(value));
     }
 
     _parameters.Insert(index, parameter);
