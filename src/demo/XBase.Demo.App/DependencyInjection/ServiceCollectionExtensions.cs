@@ -16,6 +16,8 @@ public static class ServiceCollectionExtensions
     services.AddXBaseDemoInfrastructure();
     services.AddXBaseDemoDiagnostics();
 
+    services.AddSingleton<SchemaDesignerViewModel>();
+    services.AddSingleton<IndexManagerViewModel>();
     services.AddSingleton<ShellViewModel>();
     services.AddSingleton<MainWindow>();
 

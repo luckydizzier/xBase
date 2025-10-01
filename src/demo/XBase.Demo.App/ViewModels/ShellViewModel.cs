@@ -30,6 +30,8 @@ public class ShellViewModel : ReactiveObject
       ITableCatalogService catalogService,
       ITablePageService pageService,
       IDemoTelemetrySink telemetrySink,
+      SchemaDesignerViewModel schemaDesigner,
+      IndexManagerViewModel indexManager,
       ILogger<ShellViewModel> logger)
   {
     _catalogService = catalogService;
@@ -40,6 +42,8 @@ public class ShellViewModel : ReactiveObject
     Tables = new ReadOnlyObservableCollection<TableListItemViewModel>(_tables);
     TelemetryEvents = new ReadOnlyObservableCollection<DemoTelemetryEvent>(_telemetryEvents);
     TablePage = new TablePageViewModel();
+    SchemaDesigner = schemaDesigner;
+    IndexManager = indexManager;
 
     var isIdle = this.WhenAnyValue(x => x.IsBusy).Select(isBusy => !isBusy);
 
@@ -66,6 +70,13 @@ public class ShellViewModel : ReactiveObject
     this.WhenAnyValue(x => x.SelectedTable)
         .WhereNotNull()
         .InvokeCommand(LoadTableCommand);
+
+    this.WhenAnyValue(x => x.SelectedTable)
+        .Subscribe(table =>
+        {
+          SchemaDesigner.SetTargetTable(table);
+          IndexManager.SetTargetTable(table);
+        });
   }
 
   private readonly ObservableCollection<TableListItemViewModel> _tables = new();
@@ -108,6 +119,10 @@ public class ShellViewModel : ReactiveObject
   }
 
   public TablePageViewModel TablePage { get; }
+
+  public SchemaDesignerViewModel SchemaDesigner { get; }
+
+  public IndexManagerViewModel IndexManager { get; }
 
   public ReadOnlyObservableCollection<DemoTelemetryEvent> TelemetryEvents { get; }
 
@@ -158,6 +173,8 @@ public class ShellViewModel : ReactiveObject
     CatalogStatus = "Catalog load failed. Review diagnostics for details.";
     _tables.Clear();
     SelectedTable = null;
+    SchemaDesigner.SetTargetTable(null);
+    IndexManager.SetTargetTable(null);
   }
 
   private void OnCatalogLoaded(CatalogModel catalog)

@@ -1,12 +1,9 @@
 using System;
-using System.IO;
 using System.Linq;
 using System.Reactive.Threading.Tasks;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Xunit;
-using XBase.Demo.App.DependencyInjection;
 using XBase.Demo.App.ViewModels;
 
 namespace XBase.Demo.App.Tests;
@@ -19,7 +16,7 @@ public sealed class ShellViewModelTests
     using var catalog = new TempCatalog();
     catalog.AddTable("CUSTOMERS");
 
-    using var host = CreateHost();
+    using var host = DemoHostFactory.CreateHost();
     await host.StartAsync();
 
     try
@@ -48,45 +45,4 @@ public sealed class ShellViewModelTests
     }
   }
 
-  private static IHost CreateHost()
-  {
-    var builder = Host.CreateApplicationBuilder();
-    builder.Services.AddDemoApp();
-    return builder.Build();
-  }
-
-  private sealed class TempCatalog : IDisposable
-  {
-    private readonly DirectoryInfo _directory;
-
-    public TempCatalog()
-    {
-      _directory = Directory.CreateTempSubdirectory("xbase-demo-");
-    }
-
-    public string Path => _directory.FullName;
-
-    public void AddTable(string tableName)
-    {
-      ArgumentException.ThrowIfNullOrWhiteSpace(tableName);
-
-      var tablePath = System.IO.Path.Combine(Path, tableName + ".dbf");
-      File.WriteAllBytes(tablePath, Array.Empty<byte>());
-
-      var indexPath = System.IO.Path.Combine(Path, tableName + ".ntx");
-      File.WriteAllBytes(indexPath, Array.Empty<byte>());
-    }
-
-    public void Dispose()
-    {
-      try
-      {
-        _directory.Delete(true);
-      }
-      catch
-      {
-        // best effort cleanup
-      }
-    }
-  }
 }
