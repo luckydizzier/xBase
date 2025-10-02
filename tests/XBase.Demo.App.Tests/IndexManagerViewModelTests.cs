@@ -1,7 +1,9 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Reactive.Threading.Tasks;
 using System.Threading.Tasks;
+using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 using XBase.Demo.App.ViewModels;
@@ -36,9 +38,38 @@ public sealed class IndexManagerViewModelTests
       var createResult = await indexManager.CreateIndexCommand.Execute().ToTask();
 
       Assert.True(createResult.Succeeded, createResult.Message);
-      Assert.True(File.Exists(Path.Combine(catalog.Path, "PRODUCTS.NTX")));
+      var indexPath = Path.Combine(catalog.Path, "PRODUCTS.NTX");
+      Assert.True(File.Exists(indexPath));
       Assert.Null(indexManager.ErrorMessage);
       Assert.NotNull(indexManager.StatusMessage);
+
+      using (var stream = new FileStream(indexPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+      using (var document = JsonDocument.Parse(stream))
+      {
+        var root = document.RootElement;
+        Assert.Equal(1, root.GetProperty("formatVersion").GetInt32());
+        Assert.Equal("UPPER(NAME)", root.GetProperty("expression").GetString());
+
+        var entries = root.GetProperty("entries").EnumerateArray().ToArray();
+        Assert.NotEmpty(entries);
+
+        var keys = entries
+          .Select(element => element.GetProperty("key").GetString())
+          .OfType<string>()
+          .ToArray();
+        var sorted = keys.OrderBy(key => key, StringComparer.OrdinalIgnoreCase).ToArray();
+        Assert.Equal(sorted, keys, StringComparer.OrdinalIgnoreCase);
+
+        var statistics = root.GetProperty("statistics");
+        Assert.True(statistics.GetProperty("activeRecords").GetInt32() > 0);
+      }
+
+      var refreshedCatalog = await catalogService.LoadCatalogAsync(catalog.Path);
+      var refreshedTable = Assert.Single(refreshedCatalog.Tables);
+      var createdIndexModel = Assert.Single(refreshedTable.Indexes.Where(index => string.Equals(index.Name, "PRODUCTS.NTX", StringComparison.OrdinalIgnoreCase)));
+      Assert.Equal("UPPER(NAME)", createdIndexModel.Expression);
+      Assert.NotNull(createdIndexModel.Signature);
+      Assert.True(createdIndexModel.ActiveRecordCount > 0);
 
       var indexViewModel = new IndexListItemViewModel(new IndexModel("PRODUCTS.NTX", "NTX"));
       var dropResult = await indexManager.DropIndexCommand.Execute(indexViewModel).ToTask();

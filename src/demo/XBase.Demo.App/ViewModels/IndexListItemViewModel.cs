@@ -72,6 +72,22 @@ public sealed class IndexListItemViewModel : ReactiveObject
     get
     {
       var segments = new List<string>();
+      if (Model.ActiveRecordCount is { } active)
+      {
+        if (Model.TotalRecordCount is { } total && total != active)
+        {
+          segments.Add(string.Format(CultureInfo.InvariantCulture, "{0:N0}/{1:N0} records", active, total));
+        }
+        else
+        {
+          segments.Add(string.Format(CultureInfo.InvariantCulture, "{0:N0} records", active));
+        }
+      }
+      else if (Model.TotalRecordCount is { } totalOnly)
+      {
+        segments.Add(string.Format(CultureInfo.InvariantCulture, "{0:N0} records", totalOnly));
+      }
+
       if (SizeBytes is { } size)
       {
         segments.Add(string.Format(CultureInfo.InvariantCulture, "{0:N0} bytes", size));
@@ -89,6 +105,13 @@ public sealed class IndexListItemViewModel : ReactiveObject
         segments.Add($"rebuilt in {duration:N0} ms @ {throughput:N1} KB/s");
       }
 
+      if (!string.IsNullOrWhiteSpace(Model.Signature))
+      {
+        var signature = Model.Signature!;
+        var previewLength = Math.Min(8, signature.Length);
+        segments.Add($"sig {signature[..previewLength]}…");
+      }
+
       return segments.Count == 0
           ? "No diagnostics captured yet."
           : string.Join(" • ", segments);
@@ -101,6 +124,8 @@ public sealed class IndexListItemViewModel : ReactiveObject
     Model = model;
     SizeBytes = model.SizeBytes;
     LastModifiedUtc = model.LastModifiedUtc;
+    this.RaisePropertyChanged(nameof(Model));
+    this.RaisePropertyChanged(nameof(MetricsSummary));
   }
 
   public void UpdateDiagnostics(long? sizeBytes, DateTimeOffset? lastModifiedUtc, IndexPerformanceSnapshot? performance)

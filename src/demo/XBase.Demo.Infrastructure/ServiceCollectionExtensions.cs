@@ -9,6 +9,7 @@ using XBase.Demo.Infrastructure.Indexes;
 using XBase.Demo.Infrastructure.Recovery;
 using XBase.Demo.Infrastructure.Schema;
 using XBase.Demo.Infrastructure.Seed;
+using XBase.Expressions.Evaluation;
 
 namespace XBase.Demo.Infrastructure;
 
@@ -27,6 +28,7 @@ public static class ServiceCollectionExtensions
     services.AddLogging(builder => builder.AddDebug());
     services.AddSingleton<DbfTableLoader>();
     services.AddSingleton<DbfCursorFactory>();
+    services.AddSingleton<ExpressionEvaluator>();
     services.AddSingleton<ITableCatalogService, FileSystemTableCatalogService>();
     services.AddSingleton<ITablePageService, DbfTablePageService>();
     services.AddSingleton<ISchemaDdlService, TemplateSchemaDdlService>();

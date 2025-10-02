@@ -34,7 +34,7 @@ public sealed class ShellViewModelTests
       Assert.Contains(viewModel.TelemetryEvents, evt => evt.Name == "CatalogLoaded");
       Assert.Contains(viewModel.TelemetryEvents, evt => evt.Name == "TablePreviewLoaded");
 
-      Assert.Equal(0, viewModel.TablePage.TotalCount);
+      Assert.Equal(3, viewModel.TablePage.TotalCount);
       Assert.Equal(25, viewModel.TablePage.PageSize);
       Assert.Equal(0, viewModel.TablePage.PageNumber);
       Assert.Contains("Page 1", viewModel.TablePage.Summary, StringComparison.Ordinal);
