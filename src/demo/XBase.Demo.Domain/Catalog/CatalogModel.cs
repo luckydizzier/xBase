@@ -40,4 +40,19 @@ public sealed record IndexModel(string Name, string Expression, int Order = 0)
   /// Gets the last modified timestamp of the index artifact expressed in UTC.
   /// </summary>
   public DateTimeOffset? LastModifiedUtc { get; init; }
+
+  /// <summary>
+  /// Gets the signature derived from the indexed keys for change detection.
+  /// </summary>
+  public string? Signature { get; init; }
+
+  /// <summary>
+  /// Gets the number of non-deleted records captured in the index artifact, when available.
+  /// </summary>
+  public int? ActiveRecordCount { get; init; }
+
+  /// <summary>
+  /// Gets the total number of records (including deleted entries) captured when building the index.
+  /// </summary>
+  public int? TotalRecordCount { get; init; }
 }
